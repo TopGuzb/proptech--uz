@@ -7,8 +7,8 @@ import { supabase } from '@/lib/supabase'
 import { Plus, Search, Mail, X, ChevronDown } from 'lucide-react'
 
 interface Client {
-  id: string; name: string; email: string; phone?: string; budget?: number
-  status: string; ai_score?: number; created_at: string; apartment_id?: string
+  id: string; full_name: string; email: string; phone?: string; budget_usd?: number
+  status: string; ai_score?: number; created_at: string; apartment_id?: string; notes?: string
 }
 
 const STATUSES = ['all','new','contacted','viewing','reserved','bought'] as const
@@ -20,7 +20,7 @@ export default function ClientsPage() {
   const [filter,  setFilter]    = useState<string>('all')
   const [search,  setSearch]    = useState('')
   const [modal,   setModal]     = useState(false)
-  const [form,    setForm]      = useState({ name:'', email:'', phone:'', budget:'', status:'new' })
+  const [form,    setForm]      = useState({ full_name:'', email:'', phone:'', budget_usd:'', notes:'', status:'new' })
   const [saving,  setSaving]    = useState(false)
   const [aiLoading, setAiLoading] = useState<string|null>(null)
   const [toast,   setToast]     = useState<{ msg: string; type: 'success'|'error'|'info' } | null>(null)
@@ -38,7 +38,7 @@ export default function ClientsPage() {
     if (filter !== 'all') list = list.filter(c => c.status === filter)
     if (search) {
       const q = search.toLowerCase()
-      list = list.filter(c => c.name?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q) || c.phone?.includes(q))
+      list = list.filter(c => c.full_name?.toLowerCase().includes(q) || c.email?.toLowerCase().includes(q) || c.phone?.includes(q))
     }
     return list
   }, [clients, filter, search])
@@ -48,10 +48,18 @@ export default function ClientsPage() {
   , [clients])
 
   async function create() {
-    if (!form.name.trim()) return
+    if (!form.full_name.trim()) return
     setSaving(true)
-    await supabase.from('clients').insert({ name: form.name, email: form.email, phone: form.phone, budget: form.budget ? Number(form.budget) : null, status: form.status })
-    setSaving(false); setModal(false); setForm({ name:'',email:'',phone:'',budget:'',status:'new' })
+    const { error } = await supabase.from('clients').insert({
+      full_name: form.full_name,
+      email: form.email,
+      phone: form.phone,
+      budget_usd: form.budget_usd ? Number(form.budget_usd) : null,
+      status: 'new',
+      notes: form.notes,
+    })
+    if (error) { setToast({ msg: error.message, type: 'error' }); setSaving(false); return }
+    setSaving(false); setModal(false); setForm({ full_name:'', email:'', phone:'', budget_usd:'', notes:'', status:'new' })
     setToast({ msg: 'Client created', type: 'success' }); load()
   }
 
@@ -64,10 +72,10 @@ export default function ClientsPage() {
   async function aiEmail(e: React.MouseEvent, c: Client) {
     e.stopPropagation()
     setAiLoading(c.id)
-    const r = await fetch('/api/ai-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientName: c.name, budget: c.budget, status: c.status }) })
+    const r = await fetch('/api/ai-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientName: c.full_name, budget: c.budget_usd, status: c.status }) })
     const d = await r.json()
     const w = window.open('', '_blank', 'width=620,height=520')
-    w?.document.write(`<html><head><style>body{font-family:sans-serif;background:#080b14;color:#e2e8f0;padding:24px;} h2{color:#818cf8;} .s{background:#0d1117;padding:12px;border-radius:8px;margin:10px 0;border:1px solid rgba(255,255,255,0.1);} .b{background:#0d1117;padding:16px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);white-space:pre-wrap;line-height:1.7;}</style></head><body><h2>AI Email — ${c.name}</h2><div class="s"><b>Subject:</b> ${d.subject}</div><div class="b">${d.body}</div></body></html>`)
+    w?.document.write(`<html><head><style>body{font-family:sans-serif;background:#080b14;color:#e2e8f0;padding:24px;} h2{color:#818cf8;} .s{background:#0d1117;padding:12px;border-radius:8px;margin:10px 0;border:1px solid rgba(255,255,255,0.1);} .b{background:#0d1117;padding:16px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);white-space:pre-wrap;line-height:1.7;}</style></head><body><h2>AI Email — ${c.full_name}</h2><div class="s"><b>Subject:</b> ${d.subject}</div><div class="b">${d.body}</div></body></html>`)
     setAiLoading(null)
   }
 
@@ -132,17 +140,17 @@ export default function ClientsPage() {
                   <td>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 9 }}>
                       <div style={{ width: 31, height: 31, borderRadius: '50%', background: `hsl(${(i*53)%360},50%,36%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 700, color: 'white', flexShrink: 0 }}>
-                        {c.name?.[0]?.toUpperCase()}
+                        {c.full_name?.[0]?.toUpperCase()}
                       </div>
                       <div>
-                        <div style={{ color: '#e2e8f0', fontWeight: 500, fontSize: 13 }}>{c.name}</div>
+                        <div style={{ color: '#e2e8f0', fontWeight: 500, fontSize: 13 }}>{c.full_name}</div>
                         <div style={{ color: '#475569', fontSize: 11 }}>{c.email}</div>
                       </div>
                     </div>
                   </td>
                   <td>{c.phone || '—'}</td>
-                  <td style={{ color: c.budget ? '#10b981' : '#475569', fontWeight: c.budget ? 600 : 400 }}>
-                    {c.budget ? `$${Number(c.budget).toLocaleString()}` : '—'}
+                  <td style={{ color: c.budget_usd ? '#10b981' : '#475569', fontWeight: c.budget_usd ? 600 : 400 }}>
+                    {c.budget_usd ? `$${Number(c.budget_usd).toLocaleString()}` : '—'}
                   </td>
                   <td>{c.apartment_id ? '🔗 Linked' : '—'}</td>
                   <td>
@@ -191,7 +199,7 @@ export default function ClientsPage() {
               <button onClick={() => setModal(false)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={16} /></button>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 13 }}>
-              {[{k:'name',l:'Full Name *',ph:'John Doe',t:'text',full:true},{k:'email',l:'Email',ph:'john@mail.com',t:'email'},{k:'phone',l:'Phone',ph:'+998 90 123 45 67',t:'text'},{k:'budget',l:'Budget ($)',ph:'100000',t:'number'}].map(({k,l,ph,t,full}) => (
+              {[{k:'full_name',l:'Full Name *',ph:'Akbar Toshmatov',t:'text',full:true},{k:'email',l:'Email',ph:'akbar@mail.com',t:'email'},{k:'phone',l:'Phone',ph:'+998 90 123 45 67',t:'text'},{k:'budget_usd',l:'Budget ($)',ph:'95000',t:'number'},{k:'notes',l:'Notes',ph:'Interested in 3-room…',t:'text',full:true}].map(({k,l,ph,t,full}) => (
                 <div key={k} style={{ gridColumn: full ? '1 / -1' : 'auto' }}>
                   <label style={{ display: 'block', fontSize: 10.5, fontWeight: 600, color: '#64748b', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{l}</label>
                   <input type={t} className="input" placeholder={ph} value={form[k as keyof typeof form]} onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))} />

@@ -8,7 +8,7 @@ import { supabase } from '@/lib/supabase'
 import { ArrowLeft, Mail, Building2, X, Link2 } from 'lucide-react'
 import Link from 'next/link'
 
-interface Client { id: string; name: string; email: string; phone?: string; budget?: number; status: string; ai_score?: number; notes?: string; created_at: string; apartment_id?: string }
+interface Client { id: string; full_name: string; email: string; phone?: string; budget_usd?: number; status: string; ai_score?: number; notes?: string; created_at: string; apartment_id?: string }
 interface Apt    { id: string; number: string; price: number; status: string; size: number }
 
 const PIPELINE = ['new','contacted','viewing','reserved','bought'] as const
@@ -66,7 +66,7 @@ export default function ClientDetailPage() {
 
   async function genEmail() {
     setEmailLoading(true)
-    const r = await fetch('/api/ai-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientName: client?.name, budget: client?.budget, status: client?.status, notes: client?.notes }) })
+    const r = await fetch('/api/ai-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientName: client?.full_name, budget: client?.budget_usd, status: client?.status, notes: client?.notes }) })
     const d = await r.json()
     setEmailData(d)
     setEmailLoading(false)
@@ -92,17 +92,17 @@ export default function ClientDetailPage() {
           {/* Profile card */}
           <div className="card" style={{ padding: 22 }}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 14 }}>
-              <div style={{ width: 52, height: 52, borderRadius: '50%', background: `hsl(${client.name.charCodeAt(0)*4%360},50%,38%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 700, color: 'white', flexShrink: 0 }}>
-                {client.name[0]?.toUpperCase()}
+              <div style={{ width: 52, height: 52, borderRadius: '50%', background: `hsl(${client.full_name.charCodeAt(0)*4%360},50%,38%)`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 20, fontWeight: 700, color: 'white', flexShrink: 0 }}>
+                {client.full_name[0]?.toUpperCase()}
               </div>
               <div style={{ flex: 1 }}>
-                <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: 20, fontWeight: 800, color: '#e2e8f0', letterSpacing: '-0.3px', marginBottom: 3 }}>{client.name}</h1>
+                <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: 20, fontWeight: 800, color: '#e2e8f0', letterSpacing: '-0.3px', marginBottom: 3 }}>{client.full_name}</h1>
                 <div style={{ color: '#64748b', fontSize: 13 }}>{client.email}</div>
                 {client.phone && <div style={{ color: '#64748b', fontSize: 13 }}>{client.phone}</div>}
               </div>
               <div style={{ display: 'flex', gap: 8 }}>
                 {client.ai_score != null && <div style={{ padding: '6px 12px', borderRadius: 9, background: `${scoreColor(client.ai_score)}18`, border: `1px solid ${scoreColor(client.ai_score)}30`, fontSize: 12, fontWeight: 700, color: scoreColor(client.ai_score) }}>AI {client.ai_score}</div>}
-                {client.budget && <div style={{ padding: '6px 12px', borderRadius: 9, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.18)', fontSize: 12, fontWeight: 600, color: '#10b981' }}>${Number(client.budget).toLocaleString()}</div>}
+                {client.budget_usd && <div style={{ padding: '6px 12px', borderRadius: 9, background: 'rgba(16,185,129,0.08)', border: '1px solid rgba(16,185,129,0.18)', fontSize: 12, fontWeight: 600, color: '#10b981' }}>${Number(client.budget_usd).toLocaleString()}</div>}
               </div>
             </div>
           </div>
@@ -201,7 +201,7 @@ export default function ClientDetailPage() {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
               {[
                 { l: 'Status',  v: client.status, accent: true },
-                { l: 'Budget',  v: client.budget ? `$${Number(client.budget).toLocaleString()}` : '—' },
+                { l: 'Budget',  v: client.budget_usd ? `$${Number(client.budget_usd).toLocaleString()}` : '—' },
                 { l: 'Phone',   v: client.phone || '—' },
                 { l: 'Added',   v: new Date(client.created_at).toLocaleDateString() },
               ].map(({ l, v, accent }) => (

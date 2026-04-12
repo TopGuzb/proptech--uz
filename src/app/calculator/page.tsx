@@ -21,15 +21,31 @@ function useAnimatedNumber(target: number, duration = 380) {
 
 const TERMS = [12, 24, 36, 48, 60]
 
-function RangeRow({ label, value, min, max, step, fmt, color, onChange }: {
-  label: string; value: number; min: number; max: number; step: number; fmt: (v: number) => string; color: string; onChange: (v: number) => void
+function RangeRow({ label, value, min, max, step, fmt, color, onChange, unit }: {
+  label: string; value: number; min: number; max: number; step: number; fmt: (v: number) => string; color: string; onChange: (v: number) => void; unit?: string
 }) {
   const pct = ((value - min) / (max - min)) * 100
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
         <label style={{ fontSize: 11.5, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{label}</label>
-        <span style={{ fontFamily: 'Sora, sans-serif', fontSize: 16, fontWeight: 700, color: '#e2e8f0' }}>{fmt(value)}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          {unit === '$' && <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>$</span>}
+          <input
+            type="number" min={min} max={max} step={step} value={value}
+            onChange={e => {
+              const v = Number(e.target.value)
+              if (!isNaN(v)) onChange(Math.min(max, Math.max(min, v)))
+            }}
+            style={{
+              width: unit === '$' ? 100 : 70, padding: '4px 8px', borderRadius: 8, fontSize: 13,
+              fontWeight: 700, color: '#e2e8f0', textAlign: 'right',
+              background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)',
+              outline: 'none', fontFamily: 'Sora, sans-serif',
+            }}
+          />
+          {unit && unit !== '$' && <span style={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>{unit}</span>}
+        </div>
       </div>
       <input type="range" min={min} max={max} step={step} value={value} onChange={e => onChange(Number(e.target.value))}
         style={{ width: '100%', background: `linear-gradient(to right, ${color} ${pct}%, rgba(255,255,255,0.09) ${pct}%)` }} />
@@ -85,8 +101,8 @@ export default function CalculatorPage() {
           <div className="card" style={{ padding: 26 }}>
             <h2 style={{ fontFamily: 'Sora, sans-serif', fontSize: 14, fontWeight: 700, color: '#e2e8f0', marginBottom: 22 }}>Loan Parameters</h2>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 22 }}>
-              <RangeRow label="Property Price"   value={price}   min={10_000} max={2_000_000} step={5_000} fmt={v => `$${v.toLocaleString()}`} color="#6366f1" onChange={setPrice} />
-              <RangeRow label="Down Payment"     value={downPct} min={10}     max={50}        step={5}     fmt={v => `${v}%`}                   color="#10b981" onChange={setDownPct} />
+              <RangeRow label="Property Price"   value={price}   min={10_000} max={2_000_000} step={5_000} fmt={v => `$${v.toLocaleString()}`} color="#6366f1" onChange={setPrice}    unit="$" />
+              <RangeRow label="Down Payment"     value={downPct} min={10}     max={50}        step={1}     fmt={v => `${v}%`}                   color="#10b981" onChange={setDownPct} unit="%" />
               <div>
                 <label style={{ display: 'block', fontSize: 11.5, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Loan Term</label>
                 <div style={{ display: 'flex', gap: 8 }}>
@@ -101,7 +117,7 @@ export default function CalculatorPage() {
                   ))}
                 </div>
               </div>
-              <RangeRow label="Interest Rate (% per year)" value={rate} min={0} max={30} step={0.5} fmt={v => `${v}%`} color="#f59e0b" onChange={setRate} />
+              <RangeRow label="Interest Rate (% per year)" value={rate} min={0} max={30} step={0.1} fmt={v => `${v}%`} color="#f59e0b" onChange={setRate} unit="%" />
             </div>
           </div>
 
