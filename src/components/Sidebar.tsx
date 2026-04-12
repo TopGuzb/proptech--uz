@@ -5,16 +5,17 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Building2, Users, MessageSquare,
-  Calculator, CreditCard, UserCog, LogOut, ChevronRight,
+  Calculator, CreditCard, UserCog, LogOut, ChevronRight, Home,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
-interface NavItem { href: string; icon: React.ReactNode; label: string; roles: string[] }
+interface NavItem { href: string; icon: React.ReactNode; label: string; roles: string[]; badge?: number }
 
 const NAV: NavItem[] = [
   { href: '/dashboard',        icon: <LayoutDashboard size={16} />, label: 'Overview',     roles: ['admin'] },
   { href: '/projects',         icon: <Building2 size={16} />,       label: 'Projects',     roles: ['admin'] },
   { href: '/clients',          icon: <Users size={16} />,           label: 'Clients',      roles: ['admin'] },
+  { href: '/jkh',              icon: <Home size={16} />,            label: 'ЖКХ',          roles: ['admin'] },
   { href: '/ai-chat',          icon: <MessageSquare size={16} />,   label: 'AI Chat',      roles: ['admin', 'manager'] },
   { href: '/calculator',       icon: <Calculator size={16} />,      label: 'Calculator',   roles: ['admin', 'manager'] },
   { href: '/pricing',          icon: <CreditCard size={16} />,      label: 'Pricing',      roles: ['admin'] },
@@ -34,9 +35,10 @@ function getCookie(name: string): string {
 export default function Sidebar() {
   const pathname = usePathname()
   const router   = useRouter()
-  const [role, setRole]       = useState('admin')
-  const [email, setEmail]     = useState('')
+  const [role, setRole]         = useState('admin')
+  const [email, setEmail]       = useState('')
   const [initials, setInitials] = useState('U')
+  const [openReqs, setOpenReqs] = useState(0)
 
   useEffect(() => {
     const r = getCookie('proppio-role') || 'admin'
@@ -47,9 +49,14 @@ export default function Sidebar() {
       const parts = em.split('@')[0].split(/[._-]/)
       setInitials(parts.map((p: string) => p[0]?.toUpperCase()).join('').slice(0, 2) || 'U')
     })
+    // Fetch open JKH request count for badge
+    supabase.from('jkh_requests').select('*', { count: 'exact', head: true }).neq('status', 'done')
+      .then(({ count }) => { if (count) setOpenReqs(count) })
   }, [])
 
-  const items = NAV.filter(n => n.roles.includes(role))
+  const items = NAV.filter(n => n.roles.includes(role)).map(n =>
+    n.href === '/jkh' ? { ...n, badge: openReqs || undefined } : n
+  )
 
   async function signOut() {
     await supabase.auth.signOut()
@@ -111,7 +118,12 @@ export default function Sidebar() {
               >
                 {item.icon}
                 <span style={{ flex: 1 }}>{item.label}</span>
-                {active && <ChevronRight size={11} style={{ opacity: 0.4 }} />}
+                {item.badge && (
+                  <span style={{ fontSize: 9, fontWeight: 700, background: '#ef4444', color: 'white', borderRadius: 8, padding: '1px 5px', minWidth: 16, textAlign: 'center' }}>
+                    {item.badge}
+                  </span>
+                )}
+                {active && !item.badge && <ChevronRight size={11} style={{ opacity: 0.4 }} />}
               </div>
             </Link>
           )
