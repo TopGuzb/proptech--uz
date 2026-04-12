@@ -1,48 +1,34 @@
 'use client'
 
 import { useEffect } from 'react'
+import { CheckCircle, XCircle, Info } from 'lucide-react'
 
-interface ToastProps {
+interface Props {
   message: string
   type?: 'success' | 'error' | 'info'
   onClose: () => void
+  duration?: number
 }
 
-export default function Toast({ message, type = 'success', onClose }: ToastProps) {
+const cfg = {
+  success: { bg: 'rgba(16,185,129,0.12)', border: 'rgba(16,185,129,0.25)', color: '#34d399', icon: <CheckCircle size={15} /> },
+  error:   { bg: 'rgba(239,68,68,0.12)', border: 'rgba(239,68,68,0.25)',  color: '#f87171', icon: <XCircle size={15} /> },
+  info:    { bg: 'rgba(99,102,241,0.12)', border: 'rgba(99,102,241,0.25)', color: '#818cf8', icon: <Info size={15} /> },
+}
+
+export default function Toast({ message, type = 'success', onClose, duration = 3000 }: Props) {
   useEffect(() => {
-    const timer = setTimeout(onClose, 3000)
-    return () => clearTimeout(timer)
-  }, [onClose])
+    const t = setTimeout(onClose, duration)
+    return () => clearTimeout(t)
+  }, [onClose, duration])
 
-  const colors = {
-    success: { bg: 'rgba(16,185,129,0.15)', border: 'rgba(16,185,129,0.3)', color: '#10b981' },
-    error: { bg: 'rgba(239,68,68,0.15)', border: 'rgba(239,68,68,0.3)', color: '#f87171' },
-    info: { bg: 'rgba(99,102,241,0.15)', border: 'rgba(99,102,241,0.3)', color: '#818cf8' },
-  }[type]
-
+  const c = cfg[type]
   return (
     <div className="toast" style={{
-      position: 'fixed',
-      bottom: 24,
-      right: 24,
-      background: colors.bg,
-      border: `1px solid ${colors.border}`,
-      borderRadius: 12,
-      padding: '12px 16px',
-      color: colors.color,
-      fontSize: 13,
-      fontWeight: 500,
-      zIndex: 9999,
-      backdropFilter: 'blur(10px)',
-      display: 'flex',
-      alignItems: 'center',
-      gap: 8,
-      maxWidth: 320,
+      background: c.bg, border: `1px solid ${c.border}`, color: c.color,
     }}>
-      {type === 'success' && '✓'}
-      {type === 'error' && '✕'}
-      {type === 'info' && 'ℹ'}
-      {message}
+      {c.icon}
+      <span>{message}</span>
     </div>
   )
 }
