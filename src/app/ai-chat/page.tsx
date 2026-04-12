@@ -1,304 +1,226 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import AppShell from '@/components/AppShell'
-import { Send, Sparkles, Plus, MessageSquare, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
+import { Send, Sparkles, Plus, MessageSquare, Trash2 } from 'lucide-react'
 
-interface Message {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  created_at: string
-}
+/* ─── types ─── */
+interface Msg { id: string; role: 'user' | 'assistant'; content: string; created_at: string }
+interface Session { id: string; title: string; created_at: string }
 
-interface ChatSession {
-  id: string
-  title: string
-  created_at: string
-}
-
-const SUGGESTED_PROMPTS = [
+const PROMPTS = [
   'Сколько квартир продано в этом месяце?',
   'Покажи клиентов с бюджетом выше $100,000',
-  'Какие квартиры зарезервированы но не оплачены?',
-  'Дай отчёт по проекту Green City',
+  'Какие квартиры зарезервированы?',
   'Кто из менеджеров продал больше всего?',
+  'Дай прогноз — когда проект распродастся?',
 ]
 
-export default function AiChatPage() {
-  const [sessions, setSessions] = useState<ChatSession[]>([])
-  const [activeSession, setActiveSession] = useState<string | null>(null)
-  const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState('')
-  const [streaming, setStreaming] = useState(false)
-  const [streamContent, setStreamContent] = useState('')
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const inputRef = useRef<HTMLTextAreaElement>(null)
+/* ─── Typing indicator ─── */
+function TypingDots() {
+  return (
+    <div style={{ display: 'flex', gap: 4, alignItems: 'center', padding: '4px 0' }}>
+      {[0, 1, 2].map(i => (
+        <div key={i} className="animate-blink" style={{
+          width: 6, height: 6, borderRadius: '50%', background: '#6366f1',
+          animationDelay: `${i * 0.18}s`,
+        }} />
+      ))}
+    </div>
+  )
+}
 
+export default function AiChatPage() {
+  const [sessions, setSessions]         = useState<Session[]>([])
+  const [activeId, setActiveId]         = useState<string | null>(null)
+  const [msgs, setMsgs]                 = useState<Msg[]>([])
+  const [input, setInput]               = useState('')
+  const [streaming, setStreaming]       = useState(false)
+  const [streamText, setStreamText]     = useState('')
+  const [typing, setTyping]             = useState(false)
+  const endRef    = useRef<HTMLDivElement>(null)
+  const textRef   = useRef<HTMLTextAreaElement>(null)
+
+  /* auto-scroll */
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs, streamText, typing])
+
+  /* auto-resize textarea */
   useEffect(() => {
-    loadSessions()
+    const el = textRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+  }, [input])
+
+  const loadSessions = useCallback(async () => {
+    const { data } = await supabase.from('chat_sessions').select('*').order('created_at', { ascending: false }).limit(30)
+    setSessions(data ?? [])
   }, [])
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, streamContent])
-
-  async function loadSessions() {
-    const { data } = await supabase
-      .from('chat_sessions')
-      .select('*')
-      .order('created_at', { ascending: false })
-      .limit(20)
-    setSessions(data || [])
-  }
-
-  async function loadMessages(sessionId: string) {
-    const { data } = await supabase
-      .from('chat_messages')
-      .select('*')
-      .eq('session_id', sessionId)
-      .order('created_at', { ascending: true })
-    setMessages(data || [])
-  }
-
-  async function createSession() {
-    const { data } = await supabase
-      .from('chat_sessions')
-      .insert({ title: 'New Chat' })
-      .select()
-      .single()
-    if (data) {
-      setSessions(s => [data, ...s])
-      setActiveSession(data.id)
-      setMessages([])
-    }
-  }
+  useEffect(() => { loadSessions() }, [loadSessions])
 
   async function selectSession(id: string) {
-    setActiveSession(id)
-    await loadMessages(id)
+    setActiveId(id)
+    setStreamText('')
+    const { data } = await supabase.from('chat_messages').select('*').eq('session_id', id).order('created_at')
+    setMsgs(data ?? [])
+  }
+
+  async function newChat() {
+    const { data } = await supabase.from('chat_sessions').insert({ title: 'New Chat' }).select().single()
+    if (data) {
+      setSessions(s => [data, ...s])
+      setActiveId(data.id)
+      setMsgs([])
+      setStreamText('')
+      textRef.current?.focus()
+    }
   }
 
   async function deleteSession(e: React.MouseEvent, id: string) {
     e.stopPropagation()
     await supabase.from('chat_sessions').delete().eq('id', id)
     await supabase.from('chat_messages').delete().eq('session_id', id)
-    setSessions(s => s.filter(s => s.id !== id))
-    if (activeSession === id) {
-      setActiveSession(null)
-      setMessages([])
-    }
+    setSessions(s => s.filter(x => x.id !== id))
+    if (activeId === id) { setActiveId(null); setMsgs([]) }
   }
 
-  async function sendMessage(content?: string) {
-    const msg = content || input.trim()
+  async function send(text?: string) {
+    const msg = (text ?? input).trim()
     if (!msg || streaming) return
-
-    let sessionId = activeSession
-
-    // Create session if none
-    if (!sessionId) {
-      const { data } = await supabase
-        .from('chat_sessions')
-        .insert({ title: msg.slice(0, 40) })
-        .select()
-        .single()
-      if (data) {
-        sessionId = data.id
-        setActiveSession(data.id)
-        setSessions(s => [data, ...s])
-      }
-    }
-
     setInput('')
-    setStreaming(true)
-    setStreamContent('')
 
-    // Add user message
-    const userMsg: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: msg,
-      created_at: new Date().toISOString(),
+    /* ensure session */
+    let sid = activeId
+    if (!sid) {
+      const { data } = await supabase.from('chat_sessions').insert({ title: msg.slice(0, 50) }).select().single()
+      if (!data) return
+      sid = data.id
+      setActiveId(sid)
+      setSessions(s => [data, ...s])
     }
-    setMessages(prev => [...prev, userMsg])
 
-    // Save user message
-    await supabase.from('chat_messages').insert({
-      session_id: sessionId,
-      role: 'user',
-      content: msg,
-    })
+    /* add user msg to UI */
+    const userMsg: Msg = { id: `u-${Date.now()}`, role: 'user', content: msg, created_at: new Date().toISOString() }
+    setMsgs(prev => [...prev, userMsg])
+    setTyping(true)
+    setStreaming(true)
+    setStreamText('')
 
+    /* save user msg */
+    await supabase.from('chat_messages').insert({ session_id: sid, role: 'user', content: msg })
+
+    let full = ''
     try {
       const res = await fetch('/api/ai-chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg, session_id: sessionId }),
+        body: JSON.stringify({ message: msg, history: msgs.slice(-10).map(m => ({ role: m.role, content: m.content })) }),
       })
+      if (!res.body) throw new Error('no body')
+      setTyping(false)
 
-      if (!res.body) throw new Error('No response body')
-
-      const reader = res.body.getReader()
+      const reader  = res.body.getReader()
       const decoder = new TextDecoder()
-      let fullContent = ''
-
       while (true) {
         const { done, value } = await reader.read()
         if (done) break
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6)
-            if (data === '[DONE]') break
-            try {
-              const parsed = JSON.parse(data)
-              const text = parsed.delta?.text || parsed.text || ''
-              fullContent += text
-              setStreamContent(fullContent)
-            } catch { /* ignore parse errors */ }
-          }
+        for (const line of decoder.decode(value).split('\n')) {
+          if (!line.startsWith('data: ') || line.slice(6) === '[DONE]') continue
+          try {
+            const d = JSON.parse(line.slice(6))
+            full += d.delta?.text ?? d.text ?? ''
+            setStreamText(full)
+          } catch { /* skip bad chunk */ }
         }
       }
 
-      // Add assistant message
-      const assistantMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: fullContent,
-        created_at: new Date().toISOString(),
-      }
-      setMessages(prev => [...prev, assistantMsg])
-      setStreamContent('')
+      const aMsg: Msg = { id: `a-${Date.now()}`, role: 'assistant', content: full, created_at: new Date().toISOString() }
+      setMsgs(prev => [...prev, aMsg])
+      setStreamText('')
 
-      // Save assistant message
-      await supabase.from('chat_messages').insert({
-        session_id: sessionId,
-        role: 'assistant',
-        content: fullContent,
-      })
+      await supabase.from('chat_messages').insert({ session_id: sid, role: 'assistant', content: full })
 
-      // Update session title if first message
-      if (messages.length === 0) {
-        await supabase.from('chat_sessions').update({ title: msg.slice(0, 50) }).eq('id', sessionId)
+      /* update session title on first exchange */
+      if (msgs.length === 0) {
+        await supabase.from('chat_sessions').update({ title: msg.slice(0, 50) }).eq('id', sid)
         loadSessions()
       }
-    } catch (err) {
-      const errorMsg: Message = {
-        id: (Date.now() + 1).toString(),
-        role: 'assistant',
-        content: 'Извините, произошла ошибка. Попробуйте ещё раз.',
-        created_at: new Date().toISOString(),
-      }
-      setMessages(prev => [...prev, errorMsg])
-      setStreamContent('')
+    } catch {
+      setTyping(false)
+      const errMsg: Msg = { id: `a-${Date.now()}`, role: 'assistant', content: 'Извините, произошла ошибка. Попробуйте ещё раз.', created_at: new Date().toISOString() }
+      setMsgs(prev => [...prev, errMsg])
+      setStreamText('')
     }
-
     setStreaming(false)
-    inputRef.current?.focus()
+    textRef.current?.focus()
   }
 
-  function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault()
-      sendMessage()
-    }
+  function onKey(e: React.KeyboardEvent) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() }
   }
 
   return (
     <AppShell>
-      <div style={{ display: 'flex', height: 'calc(100vh - 64px)', gap: 0, marginTop: -32, marginLeft: -32, marginRight: -32, marginBottom: -32 }}>
-        {/* Sessions sidebar */}
+      {/* Full-height layout flush with AppShell padding */}
+      <div style={{
+        display: 'flex', height: 'calc(100vh - 64px)',
+        margin: '-32px',
+        background: '#080b14',
+        borderRadius: 0,
+        overflow: 'hidden',
+      }}>
+
+        {/* ── Sessions sidebar ── */}
         <div style={{
-          width: 260,
-          background: '#0d1117',
-          borderRight: '1px solid rgba(255,255,255,0.06)',
-          display: 'flex',
-          flexDirection: 'column',
-          flexShrink: 0,
+          width: 260, flexShrink: 0,
+          background: '#0d1117', borderRight: '1px solid rgba(255,255,255,0.06)',
+          display: 'flex', flexDirection: 'column',
         }}>
-          <div style={{ padding: '20px 16px 12px', borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                <Sparkles size={15} color="#818cf8" />
-                <span style={{ fontFamily: "'Sora', sans-serif", fontSize: 14, fontWeight: 700, color: '#e2e8f0' }}>AI Assistant</span>
-              </div>
+          <div style={{ padding: '18px 14px 12px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 7, marginBottom: 12 }}>
+              <Sparkles size={14} color="#818cf8" />
+              <span style={{ fontFamily: 'Sora, sans-serif', fontSize: 14, fontWeight: 700, color: '#e2e8f0' }}>AI Chat</span>
             </div>
-            <button
-              onClick={createSession}
-              className="btn-gradient"
-              style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 6,
-                padding: '9px',
-                borderRadius: 10,
-                fontSize: 12,
-                fontWeight: 600,
-                fontFamily: "'DM Sans', sans-serif",
-              }}
-            >
+            <button onClick={newChat} className="btn-primary"
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, padding: '9px', borderRadius: 10, fontSize: 12 }}>
               <Plus size={13} /> New Chat
             </button>
           </div>
 
-          <div style={{ flex: 1, overflowY: 'auto', padding: '8px' }}>
-            {sessions.length === 0 ? (
-              <div style={{ color: '#334155', fontSize: 12, textAlign: 'center', padding: '24px 8px' }}>
-                No chats yet
-              </div>
-            ) : sessions.map(s => (
-              <div
-                key={s.id}
-                onClick={() => selectSession(s.id)}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '6px 8px' }}>
+            {sessions.length === 0 && (
+              <div style={{ color: '#334155', fontSize: 12, textAlign: 'center', padding: '24px 8px' }}>No chats yet</div>
+            )}
+            {sessions.map(s => (
+              <div key={s.id} onClick={() => selectSession(s.id)}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 8,
-                  padding: '8px 10px',
-                  borderRadius: 8,
-                  marginBottom: 2,
+                  display: 'flex', alignItems: 'center', gap: 7,
+                  padding: '8px 9px', borderRadius: 8, marginBottom: 1,
                   cursor: 'pointer',
-                  background: activeSession === s.id ? 'rgba(99,102,241,0.12)' : 'transparent',
-                  border: `1px solid ${activeSession === s.id ? 'rgba(99,102,241,0.2)' : 'transparent'}`,
-                  transition: 'all 0.15s ease',
+                  background: activeId === s.id ? 'rgba(99,102,241,0.12)' : 'transparent',
+                  border: `1px solid ${activeId === s.id ? 'rgba(99,102,241,0.2)' : 'transparent'}`,
+                  transition: 'all 0.12s',
                   position: 'relative',
                 }}
                 onMouseEnter={e => {
-                  if (activeSession !== s.id) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'
-                  const trash = e.currentTarget.querySelector('.trash-btn') as HTMLElement
-                  if (trash) trash.style.opacity = '1'
+                  if (activeId !== s.id) (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.04)'
+                  const btn = e.currentTarget.querySelector('.del-btn') as HTMLElement | null
+                  if (btn) btn.style.opacity = '1'
                 }}
                 onMouseLeave={e => {
-                  if (activeSession !== s.id) (e.currentTarget as HTMLElement).style.background = 'transparent'
-                  const trash = e.currentTarget.querySelector('.trash-btn') as HTMLElement
-                  if (trash) trash.style.opacity = '0'
+                  if (activeId !== s.id) (e.currentTarget as HTMLElement).style.background = 'transparent'
+                  const btn = e.currentTarget.querySelector('.del-btn') as HTMLElement | null
+                  if (btn) btn.style.opacity = '0'
                 }}
               >
-                <MessageSquare size={12} color={activeSession === s.id ? '#818cf8' : '#475569'} style={{ flexShrink: 0 }} />
-                <span style={{
-                  fontSize: 12,
-                  color: activeSession === s.id ? '#e2e8f0' : '#64748b',
-                  flex: 1,
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap',
-                }}>
+                <MessageSquare size={12} color={activeId === s.id ? '#818cf8' : '#475569'} style={{ flexShrink: 0 }} />
+                <span style={{ flex: 1, fontSize: 12, color: activeId === s.id ? '#e2e8f0' : '#64748b', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {s.title}
                 </span>
-                <button
-                  className="trash-btn"
-                  onClick={e => deleteSession(e, s.id)}
-                  style={{
-                    background: 'none', border: 'none', color: '#475569',
-                    cursor: 'pointer', padding: 2, opacity: 0, transition: 'opacity 0.15s',
-                    flexShrink: 0,
-                  }}
-                >
+                <button className="del-btn" onClick={e => deleteSession(e, s.id)}
+                  style={{ background: 'none', border: 'none', color: '#475569', cursor: 'pointer', opacity: 0, transition: 'opacity 0.15s', flexShrink: 0 }}>
                   <Trash2 size={11} />
                 </button>
               </div>
@@ -306,200 +228,143 @@ export default function AiChatPage() {
           </div>
         </div>
 
-        {/* Main chat area */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#080b14' }}>
-          {/* Messages */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '24px 32px' }}>
-            {messages.length === 0 && !streaming ? (
-              <div style={{ maxWidth: 600, margin: '40px auto', textAlign: 'center' }}>
+        {/* ── Main chat ── */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+
+          {/* Messages area */}
+          <div style={{ flex: 1, overflowY: 'auto', padding: '28px 40px' }}>
+            {/* Empty state */}
+            {msgs.length === 0 && !typing && !streamText && (
+              <div style={{ maxWidth: 580, margin: '48px auto', textAlign: 'center', animation: 'fadeIn 0.4s ease' }}>
                 <div style={{
-                  width: 64, height: 64, borderRadius: 20,
-                  background: 'linear-gradient(135deg, #6366f1, #818cf8)',
+                  width: 64, height: 64, borderRadius: 20, margin: '0 auto 20px',
+                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  margin: '0 auto 20px',
-                  boxShadow: '0 8px 32px rgba(99,102,241,0.3)',
+                  boxShadow: '0 8px 28px rgba(99,102,241,0.3)',
                 }}>
                   <Sparkles size={28} color="white" />
                 </div>
-                <h2 style={{ fontFamily: "'Sora', sans-serif", fontSize: 22, fontWeight: 800, color: '#e2e8f0', marginBottom: 8, letterSpacing: '-0.3px' }}>
+                <h2 style={{ fontFamily: 'Sora, sans-serif', fontSize: 22, fontWeight: 800, color: '#e2e8f0', marginBottom: 8, letterSpacing: '-0.3px' }}>
                   Proppio AI Assistant
                 </h2>
-                <p style={{ color: '#475569', fontSize: 14, marginBottom: 32, lineHeight: 1.6 }}>
-                  Ask me anything about your real estate portfolio,<br />clients, sales, and analytics.
+                <p style={{ color: '#475569', fontSize: 14, marginBottom: 28, lineHeight: 1.65 }}>
+                  Ask me anything about your sales data, clients, and apartments.<br />I answer in Russian.
                 </p>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                  {SUGGESTED_PROMPTS.map((prompt, i) => (
-                    <button
-                      key={i}
-                      onClick={() => sendMessage(prompt)}
+                  {PROMPTS.map((p, i) => (
+                    <button key={i} onClick={() => send(p)}
                       style={{
-                        padding: '11px 16px',
-                        borderRadius: 12,
-                        background: 'rgba(255,255,255,0.03)',
-                        border: '1px solid rgba(255,255,255,0.07)',
-                        color: '#94a3b8',
-                        fontSize: 13,
-                        cursor: 'pointer',
-                        textAlign: 'left',
+                        padding: '11px 16px', borderRadius: 11, textAlign: 'left', cursor: 'pointer',
+                        background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)',
+                        color: '#94a3b8', fontSize: 13, fontFamily: 'DM Sans, sans-serif',
                         transition: 'all 0.15s ease',
-                        fontFamily: "'DM Sans', sans-serif",
                       }}
-                      onMouseEnter={e => {
-                        ;(e.currentTarget as HTMLElement).style.background = 'rgba(99,102,241,0.08)'
-                        ;(e.currentTarget as HTMLElement).style.borderColor = 'rgba(99,102,241,0.2)'
-                        ;(e.currentTarget as HTMLElement).style.color = '#e2e8f0'
-                      }}
-                      onMouseLeave={e => {
-                        ;(e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)'
-                        ;(e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.07)'
-                        ;(e.currentTarget as HTMLElement).style.color = '#94a3b8'
-                      }}
+                      onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(99,102,241,0.08)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(99,102,241,0.2)'; (e.currentTarget as HTMLElement).style.color = '#e2e8f0' }}
+                      onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'rgba(255,255,255,0.03)'; (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.07)'; (e.currentTarget as HTMLElement).style.color = '#94a3b8' }}
                     >
-                      {prompt}
+                      {p}
                     </button>
                   ))}
                 </div>
               </div>
-            ) : (
-              <div style={{ maxWidth: 800, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
-                {messages.map(msg => (
-                  <div key={msg.id} style={{
-                    display: 'flex',
-                    justifyContent: msg.role === 'user' ? 'flex-end' : 'flex-start',
-                    animation: 'fadeInUp 0.2s ease',
-                  }}>
-                    {msg.role === 'assistant' && (
-                      <div style={{
-                        width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-                        background: 'linear-gradient(135deg, #6366f1, #818cf8)',
-                        display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        marginRight: 10, marginTop: 2,
-                      }}>
-                        <Sparkles size={13} color="white" />
-                      </div>
-                    )}
-                    <div style={{
-                      maxWidth: '75%',
-                      padding: '12px 16px',
-                      borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '4px 16px 16px 16px',
-                      background: msg.role === 'user'
-                        ? 'linear-gradient(135deg, #6366f1, #818cf8)'
-                        : 'rgba(255,255,255,0.04)',
-                      border: msg.role === 'user' ? 'none' : '1px solid rgba(255,255,255,0.07)',
-                      color: '#e2e8f0',
-                      fontSize: 13.5,
-                      lineHeight: 1.7,
-                      whiteSpace: 'pre-wrap',
-                    }}>
-                      {msg.content}
-                    </div>
-                  </div>
-                ))}
+            )}
 
-                {/* Streaming message */}
-                {streaming && (
-                  <div style={{ display: 'flex', justifyContent: 'flex-start', animation: 'fadeInUp 0.2s ease' }}>
+            {/* Messages */}
+            <div style={{ maxWidth: 780, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {msgs.map(m => (
+                <div key={m.id} style={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start', animation: 'fadeUp 0.2s ease' }}>
+                  {m.role === 'assistant' && (
                     <div style={{
                       width: 28, height: 28, borderRadius: 8, flexShrink: 0,
-                      background: 'linear-gradient(135deg, #6366f1, #818cf8)',
+                      background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
                       display: 'flex', alignItems: 'center', justifyContent: 'center',
                       marginRight: 10, marginTop: 2,
                     }}>
-                      <Sparkles size={13} color="white" />
+                      <span style={{ fontFamily: 'Sora, sans-serif', fontSize: 12, fontWeight: 800, color: 'white' }}>P</span>
                     </div>
+                  )}
+                  <div style={{ maxWidth: '74%' }}>
                     <div style={{
-                      maxWidth: '75%',
-                      padding: '12px 16px',
-                      borderRadius: '4px 16px 16px 16px',
-                      background: 'rgba(255,255,255,0.04)',
-                      border: '1px solid rgba(255,255,255,0.07)',
-                      color: '#e2e8f0',
-                      fontSize: 13.5,
-                      lineHeight: 1.7,
-                      whiteSpace: 'pre-wrap',
+                      padding: '11px 15px',
+                      borderRadius: m.role === 'user' ? '16px 16px 4px 16px' : '4px 16px 16px 16px',
+                      background: m.role === 'user'
+                        ? 'linear-gradient(135deg,#6366f1,#8b5cf6)'
+                        : 'rgba(255,255,255,0.04)',
+                      border: m.role === 'user' ? 'none' : '1px solid rgba(255,255,255,0.07)',
+                      borderLeft: m.role === 'assistant' ? '3px solid #6366f1' : undefined,
+                      color: '#e2e8f0', fontSize: 13.5, lineHeight: 1.7, whiteSpace: 'pre-wrap',
                     }}>
-                      {streamContent || (
-                        <span style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#6366f1', animation: 'pulse 0.8s ease infinite' }} />
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#6366f1', animation: 'pulse 0.8s ease 0.2s infinite' }} />
-                          <span style={{ width: 6, height: 6, borderRadius: '50%', background: '#6366f1', animation: 'pulse 0.8s ease 0.4s infinite' }} />
-                        </span>
-                      )}
+                      {m.content}
+                    </div>
+                    <div style={{ fontSize: 10.5, color: '#334155', marginTop: 4, textAlign: m.role === 'user' ? 'right' : 'left', padding: '0 4px' }}>
+                      {new Date(m.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </div>
-                )}
+                </div>
+              ))}
 
-                <div ref={messagesEndRef} />
-              </div>
-            )}
+              {/* Typing / streaming */}
+              {(typing || streamText) && (
+                <div style={{ display: 'flex', justifyContent: 'flex-start', animation: 'fadeUp 0.2s ease' }}>
+                  <div style={{
+                    width: 28, height: 28, borderRadius: 8, flexShrink: 0,
+                    background: 'linear-gradient(135deg,#6366f1,#8b5cf6)',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    marginRight: 10, marginTop: 2,
+                  }}>
+                    <span style={{ fontFamily: 'Sora, sans-serif', fontSize: 12, fontWeight: 800, color: 'white' }}>P</span>
+                  </div>
+                  <div style={{
+                    maxWidth: '74%', padding: '11px 15px',
+                    borderRadius: '4px 16px 16px 16px',
+                    background: 'rgba(255,255,255,0.04)',
+                    border: '1px solid rgba(255,255,255,0.07)',
+                    borderLeft: '3px solid #6366f1',
+                    color: '#e2e8f0', fontSize: 13.5, lineHeight: 1.7, whiteSpace: 'pre-wrap',
+                  }}>
+                    {typing && !streamText ? <TypingDots /> : streamText}
+                  </div>
+                </div>
+              )}
+              <div ref={endRef} />
+            </div>
           </div>
 
-          {/* Input area */}
-          <div style={{
-            padding: '16px 32px 24px',
-            borderTop: '1px solid rgba(255,255,255,0.06)',
-            background: 'rgba(13,17,23,0.8)',
-            backdropFilter: 'blur(10px)',
-          }}>
-            <div style={{
-              maxWidth: 800,
-              margin: '0 auto',
-              display: 'flex',
-              gap: 10,
-              alignItems: 'flex-end',
-            }}>
+          {/* ── Input ── */}
+          <div style={{ padding: '14px 40px 20px', borderTop: '1px solid rgba(255,255,255,0.05)', background: 'rgba(13,17,23,0.9)', backdropFilter: 'blur(8px)' }}>
+            <div style={{ maxWidth: 780, margin: '0 auto', display: 'flex', gap: 10, alignItems: 'flex-end' }}>
               <div style={{
-                flex: 1,
-                background: 'rgba(255,255,255,0.04)',
+                flex: 1, background: 'rgba(255,255,255,0.04)',
                 border: '1px solid rgba(255,255,255,0.1)',
-                borderRadius: 14,
-                padding: '12px 14px',
-                transition: 'border-color 0.2s ease',
-              }}>
+                borderRadius: 14, padding: '10px 14px',
+                transition: 'border-color 0.2s',
+              }}
+                onFocusCapture={e => (e.currentTarget as HTMLElement).style.borderColor = '#6366f1'}
+                onBlurCapture={e => (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.1)'}
+              >
                 <textarea
-                  ref={inputRef}
+                  ref={textRef}
                   value={input}
                   onChange={e => setInput(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="Задайте вопрос о вашей недвижимости..."
-                  style={{
-                    width: '100%',
-                    background: 'transparent',
-                    border: 'none',
-                    outline: 'none',
-                    color: '#e2e8f0',
-                    fontSize: 13.5,
-                    resize: 'none',
-                    fontFamily: "'DM Sans', sans-serif",
-                    lineHeight: 1.5,
-                    minHeight: 20,
-                    maxHeight: 120,
-                  }}
+                  onKeyDown={onKey}
+                  placeholder="Задайте вопрос о вашей недвижимости…"
                   rows={1}
                   disabled={streaming}
+                  style={{
+                    width: '100%', background: 'transparent', border: 'none', outline: 'none',
+                    color: '#e2e8f0', fontSize: 13.5, resize: 'none', lineHeight: 1.55,
+                    fontFamily: 'DM Sans, sans-serif', minHeight: 22, maxHeight: 120,
+                    overflow: 'hidden',
+                  }}
                 />
               </div>
-              <button
-                onClick={() => sendMessage()}
-                disabled={!input.trim() || streaming}
-                className="btn-gradient"
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: 12,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  flexShrink: 0,
-                  opacity: !input.trim() || streaming ? 0.5 : 1,
-                  cursor: !input.trim() || streaming ? 'not-allowed' : 'pointer',
-                }}
-              >
+              <button onClick={() => send()} disabled={!input.trim() || streaming} className="btn-primary"
+                style={{ width: 44, height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <Send size={16} />
               </button>
             </div>
-            <div style={{ maxWidth: 800, margin: '8px auto 0', fontSize: 11, color: '#334155', textAlign: 'center' }}>
-              Press Enter to send · Shift+Enter for new line
+            <div style={{ maxWidth: 780, margin: '6px auto 0', fontSize: 10.5, color: '#1e293b', textAlign: 'center' }}>
+              Powered by Claude AI · Enter to send, Shift+Enter for new line
             </div>
           </div>
         </div>
