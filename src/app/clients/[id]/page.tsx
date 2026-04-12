@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import AppShell from '@/components/AppShell'
 import Toast from '@/components/Toast'
 import { supabase } from '@/lib/supabase'
-import { ArrowLeft, Mail, Building2, X, Link2 } from 'lucide-react'
+import { ArrowLeft, Mail, Building2, X, Link2, ExternalLink } from 'lucide-react'
 import Link from 'next/link'
 
 interface Client {
@@ -33,9 +33,10 @@ export default function ClientDetailPage() {
   const [client, setClient]       = useState<Client | null>(null)
   const [apt,    setApt]          = useState<Apt | null>(null)
   const [allApts, setAllApts]     = useState<Apt[]>([])
-  const [linkModal, setLinkModal] = useState(false)
-  const [selApt, setSelApt]       = useState('')
-  const [emailData, setEmailData] = useState<{ subject: string; body: string } | null>(null)
+  const [linkModal, setLinkModal]   = useState(false)
+  const [saleModal, setSaleModal]   = useState<{ name: string; email: string; aptNumber: string } | null>(null)
+  const [selApt, setSelApt]         = useState('')
+  const [emailData, setEmailData]   = useState<{ subject: string; body: string } | null>(null)
   const [emailLoading, setEmailLoading] = useState(false)
   const [updating, setUpdating]   = useState(false)
   const [toast, setToast]         = useState<{ msg: string; type: 'success'|'error'|'info' } | null>(null)
@@ -59,7 +60,7 @@ export default function ClientDetailPage() {
     await supabase.from('clients').update({ status: step }).eq('id', id)
     setClient(c => c ? { ...c, status: step } : null)
 
-    // When bought: mark apartment sold + create sales record + create resident
+    // When bought: mark apartment sold + create sales record + create resident + generate first bill
     if (step === 'bought' && apt) {
       await supabase.from('apartments').update({ status: 'sold' }).eq('id', apt.id)
 
@@ -69,17 +70,34 @@ export default function ClientDetailPage() {
         price: apt.price,
       })
 
-      await supabase.from('residents').insert({
+      const { data: newResident } = await supabase.from('residents').insert({
         apartment_id: apt.id,
         client_id: id,
         full_name: client.full_name,
-        phone: client.phone,
-        email: client.email,
+        phone: client.phone || null,
+        email: client.email || null,
         move_in_date: new Date().toISOString(),
         is_owner: true,
-      })
+      }).select().single()
 
-      setToast({ msg: 'Client moved to ЖКХ as resident ✅', type: 'success' })
+      // Auto-generate first month utility bill
+      if (newResident) {
+        const month = new Date().toISOString().slice(0, 7)
+        await supabase.from('jkh_payments').insert({
+          apartment_number: apt.number,
+          resident_name: client.full_name,
+          resident_id: newResident.id,
+          month,
+          electricity: 50,
+          water: 30,
+          gas: 20,
+          maintenance: 25,
+          total: 125,
+          status: 'unpaid',
+        })
+      }
+
+      setSaleModal({ name: client.full_name, email: client.email || '', aptNumber: apt.number })
       load()
       setUpdating(false)
       return
@@ -297,6 +315,55 @@ export default function ClientDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* 🎉 Sale Complete Modal */}
+      {saleModal && (
+        <div className="modal-bg" onClick={() => setSaleModal(null)}>
+          <div className="modal-box" style={{ width: 440, padding: '32px 36px', textAlign: 'center' }} onClick={e => e.stopPropagation()}>
+            <div style={{ fontSize: 52, marginBottom: 16 }}>🎉</div>
+            <h2 style={{ fontFamily: 'Sora, sans-serif', fontSize: 22, fontWeight: 800, color: '#e2e8f0', marginBottom: 10 }}>
+              Sale Complete!
+            </h2>
+            <p style={{ color: '#94a3b8', fontSize: 14, lineHeight: 1.7, marginBottom: 22 }}>
+              <strong style={{ color: '#e2e8f0' }}>{saleModal.name}</strong> has been moved to the ЖКХ system as a resident.
+            </p>
+            <div style={{ background: 'rgba(16,185,129,0.07)', border: '1px solid rgba(16,185,129,0.18)', borderRadius: 12, padding: '14px 18px', marginBottom: 22, textAlign: 'left' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 7 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 12, color: '#64748b' }}>Portal access</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#86efac' }}>{saleModal.email || '—'}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 12, color: '#64748b' }}>Apartment</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#e2e8f0' }}>#{saleModal.aptNumber}</span>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ fontSize: 12, color: '#64748b' }}>First bill</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: '#10b981' }}>$125 generated ✓</span>
+                </div>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: 10 }}>
+              <button onClick={() => setSaleModal(null)} style={{
+                flex: 1, padding: '11px', borderRadius: 10, fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+                background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)',
+                color: '#64748b', fontFamily: 'DM Sans, sans-serif',
+              }}>
+                Close
+              </button>
+              <Link href="/jkh" onClick={() => setSaleModal(null)} style={{
+                flex: 1, padding: '11px', borderRadius: 10, fontSize: 13.5, fontWeight: 600, cursor: 'pointer',
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                border: 'none', color: 'white', textDecoration: 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+                fontFamily: 'DM Sans, sans-serif',
+              }}>
+                View in ЖКХ <ExternalLink size={12} />
+              </Link>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Link apartment modal */}
       {linkModal && (

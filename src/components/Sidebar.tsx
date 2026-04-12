@@ -22,6 +22,11 @@ const NAV: NavItem[] = [
   { href: '/users',            icon: <UserCog size={16} />,         label: 'Users',        roles: ['admin'] },
   { href: '/seller/dashboard', icon: <LayoutDashboard size={16} />, label: 'My Dashboard', roles: ['manager'] },
   { href: '/clients',          icon: <Users size={16} />,           label: 'My Clients',   roles: ['manager'] },
+  // JKH Manager nav
+  { href: '/jkh/dashboard',   icon: <LayoutDashboard size={16} />, label: 'Dashboard',    roles: ['jkh_manager'] },
+  { href: '/jkh',              icon: <Home size={16} />,            label: 'ЖКХ Portal',   roles: ['jkh_manager'] },
+  { href: '/jkh/residents',   icon: <Users size={16} />,           label: 'Residents',    roles: ['jkh_manager'] },
+  { href: '/ai-chat',          icon: <MessageSquare size={16} />,   label: 'AI Chat',      roles: ['jkh_manager'] },
 ]
 
 function getCookie(name: string): string {
@@ -55,7 +60,7 @@ export default function Sidebar() {
   }, [])
 
   const items = NAV.filter(n => n.roles.includes(role)).map(n =>
-    n.href === '/jkh' ? { ...n, badge: openReqs || undefined } : n
+    (n.href === '/jkh' || n.href === '/jkh/dashboard') ? { ...n, badge: openReqs || undefined } : n
   )
 
   async function signOut() {
