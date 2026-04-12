@@ -7,7 +7,7 @@ import { supabase } from '@/lib/supabase'
 import { Building2, MapPin, Plus, Pencil, Trash2, X } from 'lucide-react'
 import Link from 'next/link'
 
-interface Project { id: string; name: string; location: string; description?: string; created_at: string; _total?: number; _sold?: number }
+interface Project { id: string; name: string; location: string; created_at: string; _total?: number; _sold?: number }
 
 const GRAD = [
   'linear-gradient(135deg,#6366f1,#818cf8)',
@@ -23,7 +23,7 @@ export default function ProjectsPage() {
   const [loading,  setLoading]  = useState(true)
   const [modal,    setModal]    = useState<'add'|'edit'|'delete'|null>(null)
   const [target,   setTarget]   = useState<Project | null>(null)
-  const [form,     setForm]     = useState({ name: '', location: '', description: '' })
+  const [form,     setForm]     = useState({ name: '', location: '' })
   const [saving,   setSaving]   = useState(false)
   const [toast,    setToast]    = useState<{ msg: string; type: 'success'|'error'|'info' } | null>(null)
 
@@ -44,18 +44,38 @@ export default function ProjectsPage() {
   }
   useEffect(() => { load() }, [])
 
-  function openAdd()           { setTarget(null); setForm({ name:'', location:'', description:'' }); setModal('add') }
-  function openEdit(p: Project){ setTarget(p);    setForm({ name: p.name, location: p.location ?? '', description: p.description ?? '' }); setModal('edit') }
+  function openAdd()           { setTarget(null); setForm({ name:'', location:'' }); setModal('add') }
+  function openEdit(p: Project){ setTarget(p);    setForm({ name: p.name, location: p.location ?? '' }); setModal('edit') }
   function openDel(p: Project) { setTarget(p); setModal('delete') }
 
   async function save() {
     if (!form.name.trim()) return
     setSaving(true)
     if (modal === 'edit' && target) {
-      await supabase.from('projects').update({ name: form.name, location: form.location, description: form.description }).eq('id', target.id)
+      const { error } = await supabase
+        .from('projects')
+        .update({ name: form.name, location: form.location })
+        .eq('id', target.id)
+      if (error) {
+        console.error('Project update error:', error)
+        console.error('Error details:', JSON.stringify(error))
+        setToast({ msg: error.message, type: 'error' })
+        setSaving(false); return
+      }
       setToast({ msg: 'Project updated', type: 'success' })
     } else {
-      await supabase.from('projects').insert({ name: form.name, location: form.location, description: form.description })
+      const { data, error } = await supabase
+        .from('projects')
+        .insert({ name: form.name, location: form.location })
+        .select()
+        .single()
+      if (error) {
+        console.error('Project insert error:', error)
+        console.error('Error details:', JSON.stringify(error))
+        setToast({ msg: error.message, type: 'error' })
+        setSaving(false); return
+      }
+      console.log('Project created:', data)
       setToast({ msg: 'Project created', type: 'success' })
     }
     setSaving(false); setModal(null); load()
@@ -63,7 +83,13 @@ export default function ProjectsPage() {
 
   async function del() {
     if (!target) return
-    await supabase.from('projects').delete().eq('id', target.id)
+    const { error } = await supabase.from('projects').delete().eq('id', target.id)
+    if (error) {
+      console.error('Project delete error:', error)
+      console.error('Error details:', JSON.stringify(error))
+      setToast({ msg: error.message, type: 'error' })
+      return
+    }
     setToast({ msg: 'Deleted', type: 'error' }); setModal(null); load()
   }
 
@@ -145,10 +171,6 @@ export default function ProjectsPage() {
                   <input className="input" placeholder={ph} value={form[k as keyof typeof form]} onChange={e => setForm(f => ({ ...f, [k]: e.target.value }))} />
                 </div>
               ))}
-              <div>
-                <label style={{ display: 'block', fontSize: 11, fontWeight: 600, color: '#64748b', marginBottom: 5, textTransform: 'uppercase', letterSpacing: '0.06em' }}>Description</label>
-                <textarea className="input" placeholder="Brief description…" rows={3} value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} style={{ resize: 'none', height: 'auto' }} />
-              </div>
               <button onClick={save} disabled={saving} className="btn-primary" style={{ padding: '12px', borderRadius: 12, fontSize: 14, marginTop: 4 }}>
                 {saving ? 'Saving…' : modal === 'edit' ? 'Update Project' : 'Create Project'}
               </button>
