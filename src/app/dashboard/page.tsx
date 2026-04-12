@@ -15,7 +15,7 @@ import {
 
 /* ── types ── */
 interface Metric { total: number; sold: number; available: number; revenue: number }
-interface Client { id: string; name: string; status: string; created_at: string; budget?: number }
+interface Client { id: string; full_name: string; status: string; created_at: string; budget_usd?: number }
 interface Insight { icon: string; title: string; description: string }
 
 const MONTH_ABBR = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
@@ -79,7 +79,7 @@ export default function DashboardPage() {
 
     // Recent clients (reserved/bought)
     const { data: cls } = await supabase.from('clients')
-      .select('id, name, status, created_at, budget')
+      .select('id, full_name, status, created_at, budget_usd')
       .in('status', ['reserved', 'bought'])
       .order('created_at', { ascending: false })
       .limit(10)
@@ -176,7 +176,7 @@ export default function DashboardPage() {
                 </div>
                 {clients.slice(0, 5).map(c => (
                   <div key={c.id} style={{ padding: '10px 16px', borderBottom: '1px solid rgba(255,255,255,0.04)', fontSize: 12 }}>
-                    <div style={{ color: '#e2e8f0', fontWeight: 500 }}>{c.name}</div>
+                    <div style={{ color: '#e2e8f0', fontWeight: 500 }}>{c.full_name}</div>
                     <div style={{ color: '#475569', marginTop: 2 }}>{c.status} · {new Date(c.created_at).toLocaleDateString()}</div>
                   </div>
                 ))}
@@ -332,12 +332,12 @@ export default function DashboardPage() {
                               background: `hsl(${(i*53)%360},50%,38%)`,
                               display: 'flex', alignItems: 'center', justifyContent: 'center',
                               fontSize: 11, fontWeight: 700, color: 'white', flexShrink: 0,
-                            }}>{c.name?.[0]?.toUpperCase()}</div>
-                            <span style={{ color: '#e2e8f0', fontWeight: 500 }}>{c.name}</span>
+                            }}>{c.full_name?.[0]?.toUpperCase()}</div>
+                            <span style={{ color: '#e2e8f0', fontWeight: 500 }}>{c.full_name}</span>
                           </div>
                         </td>
                         <td><span className={`badge ${STATUS_CLS[c.status] || 'badge-new'}`}>{c.status}</span></td>
-                        <td style={{ color: '#10b981', fontWeight: 600 }}>{c.budget ? `$${Number(c.budget).toLocaleString()}` : '—'}</td>
+                        <td style={{ color: '#10b981', fontWeight: 600 }}>{c.budget_usd ? `$${Number(c.budget_usd).toLocaleString()}` : '—'}</td>
                         <td>{new Date(c.created_at).toLocaleDateString()}</td>
                       </tr>
                     ))

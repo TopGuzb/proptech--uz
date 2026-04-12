@@ -1,44 +1,56 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'
 
 export default function LoginPage() {
-  const router = useRouter()
   const [email, setEmail]       = useState('')
   const [password, setPassword] = useState('')
   const [showPw, setShowPw]     = useState(false)
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState('')
 
-  async function handleSubmit(e: React.FormEvent) {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!email || !password) { setError('Please fill in all fields.'); return }
     setLoading(true)
     setError('')
 
-    const { data, error: authErr } = await supabase.auth.signInWithPassword({ email, password })
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
-    if (authErr || !data.user) {
-      setError(authErr?.message || 'Invalid credentials. Please try again.')
+      if (error) {
+        console.error('Login error:', error.message)
+        setError(error.message)
+        setLoading(false)
+        return
+      }
+
+      if (data.user) {
+        console.log('Login success:', data.user.email)
+
+        try {
+          await supabase.from('user_profiles').upsert({
+            id: data.user.id,
+            email: data.user.email,
+            role: 'admin',
+            full_name: 'Admin',
+          }, { onConflict: 'id' })
+        } catch (e) {
+          console.log('Profile upsert error (non-critical):', e)
+        }
+
+        document.cookie = 'proppio-role=admin; path=/; max-age=86400'
+
+        setTimeout(() => {
+          window.location.replace('/dashboard')
+        }, 500)
+      }
+    } catch (err) {
+      console.error('Unexpected error:', err)
+      setError('Something went wrong')
       setLoading(false)
-      return
     }
-
-    // Upsert profile
-    await supabase.from('user_profiles').upsert({
-      id: data.user.id,
-      email: data.user.email,
-      full_name: data.user.user_metadata?.full_name || email.split('@')[0],
-      role: 'admin',
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'id' })
-
-    // Set role cookie for middleware
-    document.cookie = `proppio-role=admin; path=/; max-age=${60 * 60 * 24 * 7}`
-    router.push('/dashboard')
   }
 
   return (
