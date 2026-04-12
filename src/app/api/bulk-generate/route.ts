@@ -1,43 +1,51 @@
-import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
-const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
-export async function POST(req: NextRequest) {
-  const body = await req.json()
-  const building_id         = String(body.building_id || '').slice(0, 100)
-  const floors              = Math.min(Math.max(parseInt(body.floors) || 10, 1), 50)
-  const apartments_per_floor = Math.min(Math.max(parseInt(body.apartments_per_floor) || 4, 1), 20)
-  const price               = Math.max(parseFloat(body.price) || 80_000, 0)
-  const size_m2             = Math.max(parseFloat(body.size_m2 || body.size) || 60, 1)
+export async function POST(request: Request) {
+  const { building_id, floors, apartments_per_floor, price, size_m2 } = await request.json()
 
-  if (!building_id) return NextResponse.json({ error: 'building_id required' }, { status: 400 })
+  if (!building_id) return Response.json({ error: 'building_id required' }, { status: 400 })
 
   let created = 0
 
   for (let f = 1; f <= floors; f++) {
-    /* create or find floor */
-    const { data: floorRow } = await sb.from('floors')
-      .upsert({ building_id, floor_number: f, name: `Этаж ${f}` }, { onConflict: 'building_id,floor_number' })
-      .select('id').single()
+    const { data: floor, error: floorErr } = await supabase
+      .from('floors')
+      .insert({ building_id, floor_number: f })
+      .select()
+      .single()
 
-    const floorId = floorRow?.id
-    if (!floorId) continue
+    if (floorErr || !floor) {
+      console.error(`Floor ${f} insert error:`, floorErr)
+      continue
+    }
 
-    const apts = Array.from({ length: apartments_per_floor }, (_, a) => ({
-      building_id,
-      floor_id: floorId,
-      floor: f,
-      number: `${String(f).padStart(2,'0')}${String(a + 1).padStart(2,'0')}`,
-      status: 'available',
-      price: Math.round(price * (1 + (f - 1) * 0.005)),
-      size: size_m2,
-      rooms: size_m2 > 80 ? 3 : size_m2 > 55 ? 2 : 1,
-    }))
+    for (let a = 1; a <= apartments_per_floor; a++) {
+      const rooms_count = a <= 1 ? 1 : a <= 2 ? 2 : a <= 3 ? 3 : 4
 
-    const { data: inserted } = await sb.from('apartments').insert(apts).select('id')
-    created += inserted?.length ?? 0
+      const { error: aptErr } = await supabase
+        .from('apartments')
+        .insert({
+          floor_id: floor.id,
+          building_id,
+          number: `${f}0${a}`,
+          rooms_count,
+          size_m2: size_m2 || 60,
+          price: price || 80000,
+          status: 'available',
+        })
+
+      if (aptErr) {
+        console.error(`Apt ${f}0${a} insert error:`, aptErr)
+      } else {
+        created++
+      }
+    }
   }
 
-  return NextResponse.json({ created })
+  return Response.json({ created, success: true })
 }

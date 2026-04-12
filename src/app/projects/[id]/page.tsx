@@ -41,7 +41,17 @@ export default function ProjectDetailPage() {
 
   async function addBuilding() {
     if (!bName.trim()) return
-    const { data } = await supabase.from('buildings').insert({ name: bName, project_id: id }).select().single()
+    const { data, error } = await supabase
+      .from('buildings')
+      .insert({ project_id: id, name: bName, floors_count: 1 })
+      .select()
+      .single()
+    if (error) {
+      console.error('Building insert error:', error)
+      console.error('Error details:', JSON.stringify(error))
+      setToast({ msg: error.message, type: 'error' })
+      return
+    }
     if (data) { setActiveBld(data.id); setBName(''); setShowAdd(false); setToast({ msg: 'Building added', type: 'success' }); load() }
   }
 
