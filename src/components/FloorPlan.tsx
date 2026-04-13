@@ -22,6 +22,7 @@ export default function FloorPlan({ building_id }: { building_id: string }) {
   const [bulk,   setBulk]   = useState(false)
   const [bForm,  setBForm]  = useState({ floors: 10, apartments_per_floor: 4, price: 80000, size_m2: 60, rooms_count: 2 })
   const [bLoading, setBLoading] = useState(false)
+  const [progress, setProgress] = useState(0)
   const [toast, setToast]   = useState<{ msg: string; type: 'success'|'error'|'info' } | null>(null)
   const [result, setResult] = useState<{
     success: boolean
@@ -60,7 +61,15 @@ export default function FloorPlan({ building_id }: { building_id: string }) {
   async function generate() {
     setBLoading(true)
     setResult(null)
-    
+    setProgress(0)
+
+    // Animate progress while waiting for API
+    let fakeProgress = 0
+    const ticker = setInterval(() => {
+      fakeProgress = Math.min(fakeProgress + Math.random() * 12, 90)
+      setProgress(Math.round(fakeProgress))
+    }, 300)
+
     try {
       const r = await fetch('/api/bulk-generate', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -68,13 +77,16 @@ export default function FloorPlan({ building_id }: { building_id: string }) {
       })
       const d = await r.json()
       
+      clearInterval(ticker)
       if (!r.ok) {
+        setProgress(0)
         setResult({
           success: false,
           count: 0,
           error: d.error || 'Unknown error occurred'
         })
       } else {
+        setProgress(100)
         setResult({
           success: d.success || true,
           count: d.count || 0,
@@ -86,6 +98,8 @@ export default function FloorPlan({ building_id }: { building_id: string }) {
         load()
       }
     } catch (error) {
+      clearInterval(ticker)
+      setProgress(0)
       setResult({
         success: false,
         count: 0,
@@ -256,8 +270,27 @@ export default function FloorPlan({ building_id }: { building_id: string }) {
                 Will create <strong>{bForm.floors * bForm.apartments_per_floor}</strong> apartments across <strong>{bForm.floors}</strong> floors
               </div>
               <button onClick={generate} disabled={bLoading} className="btn-primary" style={{ padding: '12px', borderRadius: 11, fontSize: 14, marginTop: 2 }}>
-                {bLoading ? 'Generating…' : `Generate ${bForm.floors * bForm.apartments_per_floor} Apartments`}
+                {bLoading ? `Generating… ${progress}%` : `Generate ${bForm.floors * bForm.apartments_per_floor} Apartments`}
               </button>
+
+              {/* Progress bar */}
+              {bLoading && (
+                <div style={{ marginTop: 4 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: '#64748b', marginBottom: 5 }}>
+                    <span>Creating apartments…</span>
+                    <span>{progress}%</span>
+                  </div>
+                  <div style={{ height: 6, background: 'rgba(255,255,255,0.07)', borderRadius: 4, overflow: 'hidden' }}>
+                    <div style={{
+                      height: '100%',
+                      width: `${progress}%`,
+                      background: 'linear-gradient(90deg, #6366f1, #8b5cf6)',
+                      borderRadius: 4,
+                      transition: 'width 0.3s ease',
+                    }} />
+                  </div>
+                </div>
+              )}
 
               {/* Success/Error State Display */}
               {result && result.success && (

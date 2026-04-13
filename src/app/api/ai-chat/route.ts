@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
     sb.from('apartments').select('*', { count: 'exact', head: true }).eq('status', 'sold'),
     sb.from('apartments').select('*', { count: 'exact', head: true }).eq('status', 'available'),
     sb.from('apartments').select('price').eq('status', 'sold'),
-    sb.from('clients').select('name,status,budget,created_at').order('created_at', { ascending: false }).limit(20),
+    sb.from('clients').select('full_name,status,budget_usd,created_at').order('created_at', { ascending: false }).limit(20),
     sb.from('projects').select('id,name,location'),
   ])
 
