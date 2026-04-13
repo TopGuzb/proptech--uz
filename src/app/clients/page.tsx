@@ -22,8 +22,11 @@ export default function ClientsPage() {
   const [modal,   setModal]     = useState(false)
   const [form,    setForm]      = useState({ full_name:'', email:'', phone:'', budget_usd:'', notes:'', status:'new' })
   const [saving,  setSaving]    = useState(false)
-  const [aiLoading, setAiLoading] = useState<string|null>(null)
-  const [toast,   setToast]     = useState<{ msg: string; type: 'success'|'error'|'info' } | null>(null)
+  const [aiLoading, setAiLoading]   = useState<string|null>(null)
+  const [emailModal, setEmailModal] = useState(false)
+  const [emailContent, setEmailContent] = useState({ subject: '', body: '' })
+  const [emailLoading, setEmailLoading] = useState(false)
+  const [toast,   setToast]         = useState<{ msg: string; type: 'success'|'error'|'info' } | null>(null)
 
   const load = async () => {
     setLoading(true)
@@ -72,10 +75,17 @@ export default function ClientsPage() {
   async function aiEmail(e: React.MouseEvent, c: Client) {
     e.stopPropagation()
     setAiLoading(c.id)
-    const r = await fetch('/api/ai-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ clientName: c.full_name, budget: c.budget_usd, status: c.status }) })
+    setEmailContent({ subject: '', body: '' })
+    setEmailModal(true)
+    setEmailLoading(true)
+    const r = await fetch('/api/ai-email', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ clientName: c.full_name, budget: c.budget_usd, status: c.status, notes: c.notes }),
+    })
     const d = await r.json()
-    const w = window.open('', '_blank', 'width=620,height=520')
-    w?.document.write(`<html><head><style>body{font-family:sans-serif;background:#080b14;color:#e2e8f0;padding:24px;} h2{color:#818cf8;} .s{background:#0d1117;padding:12px;border-radius:8px;margin:10px 0;border:1px solid rgba(255,255,255,0.1);} .b{background:#0d1117;padding:16px;border-radius:8px;border:1px solid rgba(255,255,255,0.1);white-space:pre-wrap;line-height:1.7;}</style></head><body><h2>AI Email — ${c.full_name}</h2><div class="s"><b>Subject:</b> ${d.subject}</div><div class="b">${d.body}</div></body></html>`)
+    setEmailContent(d)
+    setEmailLoading(false)
     setAiLoading(null)
   }
 
@@ -189,6 +199,54 @@ export default function ClientsPage() {
           </table>
         </div>
       </div>
+
+      {/* AI Email modal */}
+      {emailModal && (
+        <div className="modal-bg" onClick={() => setEmailModal(false)}>
+          <div className="modal-box" style={{ width: 560, padding: '26px 30px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 18 }}>
+              <h3 style={{ fontFamily: 'Sora, sans-serif', fontSize: 15, fontWeight: 700, color: '#e2e8f0' }}>✉️ AI Generated Email</h3>
+              <button onClick={() => setEmailModal(false)} style={{ background: 'none', border: 'none', color: '#64748b', cursor: 'pointer', fontSize: 20, lineHeight: 1 }}>×</button>
+            </div>
+
+            {emailLoading ? (
+              <div style={{ textAlign: 'center', padding: '40px 0' }}>
+                <div style={{
+                  width: 32, height: 32, borderRadius: '50%',
+                  border: '2px solid #6366f1', borderTopColor: 'transparent',
+                  animation: 'spin 0.7s linear infinite',
+                  margin: '0 auto 14px',
+                }} />
+                <p style={{ color: '#64748b', fontSize: 13 }}>Generating email…</p>
+              </div>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 14, overflowY: 'auto' }}>
+                <div>
+                  <div style={{ fontSize: 10.5, fontWeight: 600, color: '#64748b', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Subject</div>
+                  <div style={{ background: 'rgba(99,102,241,0.07)', border: '1px solid rgba(99,102,241,0.15)', borderRadius: 9, padding: '11px 14px', color: '#e2e8f0', fontSize: 13.5, fontWeight: 500 }}>
+                    {emailContent.subject}
+                  </div>
+                </div>
+                <div>
+                  <div style={{ fontSize: 10.5, fontWeight: 600, color: '#64748b', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.07em' }}>Body</div>
+                  <div style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)', borderRadius: 9, padding: '14px', color: '#cbd5e1', fontSize: 13, lineHeight: 1.75, whiteSpace: 'pre-wrap' }}>
+                    {emailContent.body}
+                  </div>
+                </div>
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(emailContent.subject + '\n\n' + emailContent.body)
+                    setToast({ msg: 'Copied to clipboard!', type: 'success' })
+                  }}
+                  className="btn-primary"
+                  style={{ padding: '11px', borderRadius: 10, fontSize: 13.5, marginTop: 4 }}>
+                  📋 Copy to Clipboard
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* New Client modal */}
       {modal && (
