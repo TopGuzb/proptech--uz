@@ -4,22 +4,10 @@ import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import AppShell from '@/components/AppShell'
+import { LoadingSpinner, EmptyState, StatCard } from '@/components/ui'
+import type { Apartment, Building } from '@/types'
 
-interface Apartment {
-  id: string
-  number: string
-  rooms_count: number
-  size_m2: number
-  price: number
-  status: 'available' | 'reserved' | 'sold'
-  floor_id: string
-  floors: { floor_number: number }
-}
-
-interface Building {
-  id: string
-  name: string
-}
+type ApartmentWithFloor = Apartment & { floors: { floor_number: number } }
 
 export default function ApartmentsPage() {
   const params = useParams()
@@ -29,7 +17,7 @@ export default function ApartmentsPage() {
 
   const [buildings, setBuildings] = useState<Building[]>([])
   const [selectedBuilding, setSelectedBuilding] = useState('')
-  const [apartments, setApartments] = useState<Apartment[]>([])
+  const [apartments, setApartments] = useState<ApartmentWithFloor[]>([])
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState<string>('all')
 
@@ -55,7 +43,7 @@ export default function ApartmentsPage() {
       .eq('building_id', selectedBuilding)
       .order('number')
       .then(({ data }) => {
-        if (data) setApartments(data as any)
+        if (data) setApartments(data as ApartmentWithFloor[])
         setLoading(false)
       })
   }, [selectedBuilding])
@@ -70,7 +58,7 @@ export default function ApartmentsPage() {
     if (!acc[floorNum]) acc[floorNum] = []
     acc[floorNum].push(apt)
     return acc
-  }, {} as Record<number, Apartment[]>)
+  }, {} as Record<number, ApartmentWithFloor[]>)
 
   const floorNums = Object.keys(byFloor)
     .map(Number)

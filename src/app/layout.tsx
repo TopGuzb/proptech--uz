@@ -3,7 +3,8 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'PropTech UZ — AI CRM для застройщиков',
-  description: 'AI-платформа недвижимости Узбекистана',
+  description: 'AI-платформа полного цикла недвижимости Узбекистана',
+  keywords: ['PropTech', 'CRM', 'Узбекистан', 'недвижимость', 'AI'],
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
