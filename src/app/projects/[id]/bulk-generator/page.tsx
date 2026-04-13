@@ -137,7 +137,7 @@ export default function BulkGeneratorPage() {
               </button>
               <button
                 type="button"
-                onClick={() => router.push(`/projects/${projectId}`)}
+                onClick={() => router.push(`/projects/${projectId}/apartments`)}
                 className="px-5 py-2 rounded-xl bg-indigo-600
                            hover:bg-indigo-700 text-white text-sm">
                 Смотреть проект →

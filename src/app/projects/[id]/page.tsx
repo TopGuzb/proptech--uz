@@ -70,12 +70,20 @@ export default function ProjectDetailPage() {
           <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: 22, fontWeight: 800, color: '#e2e8f0', letterSpacing: '-0.4px', marginBottom: 3 }}>{project.name}</h1>
           <p style={{ color: '#64748b', fontSize: 13 }}>{project.location}</p>
         </div>
-        <button
-          type="button"
-          onClick={() => router.push(`/projects/${id}/bulk-generator`)}
-          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm">
-          ⚡ Bulk Generator
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button
+            type="button"
+            onClick={() => router.push(`/projects/${id}/apartments`)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#161b22] border border-[#30363d] hover:border-indigo-500 text-white text-sm font-medium transition-colors">
+            🏢 Квартиры
+          </button>
+          <button
+            type="button"
+            onClick={() => router.push(`/projects/${id}/bulk-generator`)}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm">
+            ⚡ Bulk Generator
+          </button>
+        </div>
       </div>
 
       <div style={{ display: 'flex', gap: 20 }}>
