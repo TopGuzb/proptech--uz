@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Proppio AI — Real Estate CRM',
-  description: 'AI-Powered Real Estate Platform for Uzbekistan',
+  title: 'PropTech UZ — AI CRM для застройщиков',
+  description: 'AI-платформа недвижимости Узбекистана',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

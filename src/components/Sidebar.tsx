@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Building2, Users, MessageSquare,
-  Calculator, CreditCard, UserCog, LogOut, ChevronRight, Home,
+  Calculator, CreditCard, UserCog, LogOut, ChevronRight, Home, Zap,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
@@ -14,6 +14,7 @@ interface NavItem { href: string; icon: React.ReactNode; label: string; roles: s
 const NAV: NavItem[] = [
   { href: '/dashboard',        icon: <LayoutDashboard size={16} />, label: 'Overview',     roles: ['admin'] },
   { href: '/projects',         icon: <Building2 size={16} />,       label: 'Projects',     roles: ['admin'] },
+  { href: '/bulk-generator',   icon: <Zap size={16} />,             label: 'Bulk Generator', roles: ['admin'] },
   { href: '/clients',          icon: <Users size={16} />,           label: 'Clients',      roles: ['admin'] },
   { href: '/jkh',              icon: <Home size={16} />,            label: 'ЖКХ',          roles: ['admin'] },
   { href: '/ai-chat',          icon: <MessageSquare size={16} />,   label: 'AI Chat',      roles: ['admin', 'manager'] },
@@ -46,7 +47,7 @@ export default function Sidebar() {
   const [openReqs, setOpenReqs] = useState(0)
 
   useEffect(() => {
-    const r = getCookie('proppio-role') || 'admin'
+    const r = getCookie('proptech-uz-role') || 'admin'
     setRole(r)
     supabase.auth.getUser().then(({ data }) => {
       const em = data.user?.email || ''
@@ -65,7 +66,7 @@ export default function Sidebar() {
 
   async function signOut() {
     await supabase.auth.signOut()
-    document.cookie = 'proppio-role=; path=/; max-age=0'
+    document.cookie = 'proptech-uz-role=; path=/; max-age=0'
     router.push('/login')
   }
 
@@ -90,7 +91,7 @@ export default function Sidebar() {
             <span style={{ fontFamily: 'Sora, sans-serif', fontSize: 15, fontWeight: 800, color: 'white' }}>P</span>
           </div>
           <span style={{ fontFamily: 'Sora, sans-serif', fontSize: 16, fontWeight: 800, color: '#e2e8f0', letterSpacing: '-0.3px' }}>
-            Proppio AI
+            PropTech UZ
           </span>
         </div>
         <p style={{ fontSize: 10.5, color: '#334155', fontWeight: 500, marginLeft: 44, letterSpacing: '0.04em' }}>

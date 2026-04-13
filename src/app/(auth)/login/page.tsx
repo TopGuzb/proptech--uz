@@ -39,9 +39,9 @@ export default function LoginPage() {
         if (dbErr) { setError('Could not verify resident account'); setLoading(false); return }
         if (!data)  { setError('No resident found with that email. Use the email from your purchase.'); setLoading(false); return }
 
-        document.cookie = `proppio-role=resident; path=/; max-age=86400`
-        document.cookie = `proppio-resident-id=${data.id}; path=/; max-age=86400`
-        document.cookie = `proppio-resident-email=${encodeURIComponent(email)}; path=/; max-age=86400`
+        document.cookie = `proptech-uz-role=resident; path=/; max-age=86400`
+        document.cookie = `proptech-uz-resident-id=${data.id}; path=/; max-age=86400`
+        document.cookie = `proptech-uz-resident-email=${encodeURIComponent(email)}; path=/; max-age=86400`
         setTimeout(() => { window.location.replace('/resident/dashboard') }, 300)
         return
       }
@@ -59,7 +59,7 @@ export default function LoginPage() {
           )
         } catch { /* non-critical */ }
 
-        document.cookie = `proppio-role=${cookieRole}; path=/; max-age=86400`
+        document.cookie = `proptech-uz-role=${cookieRole}; path=/; max-age=86400`
 
         const redirect = role === 'jkh_manager' ? '/jkh/dashboard' : '/dashboard'
         setTimeout(() => { window.location.replace(redirect) }, 500)
@@ -123,7 +123,7 @@ export default function LoginPage() {
             <span style={{ fontFamily: 'Sora, sans-serif', fontSize: 22, fontWeight: 800, color: 'white' }}>P</span>
           </div>
           <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: 24, fontWeight: 800, color: '#e2e8f0', letterSpacing: '-0.5px', marginBottom: 4 }}>
-            Proppio AI
+            PropTech UZ
           </h1>
           <p style={{ color: '#64748b', fontSize: 12.5 }}>AI-Powered Real Estate Platform</p>
         </div>
@@ -234,7 +234,7 @@ export default function LoginPage() {
         </form>
 
         <p style={{ textAlign: 'center', color: '#1e293b', fontSize: 11.5, marginTop: 24 }}>
-          © 2026 Proppio AI. All rights reserved.
+          © 2026 PropTech UZ. All rights reserved.
         </p>
       </div>
     </div>
