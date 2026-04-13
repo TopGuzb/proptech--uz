@@ -20,9 +20,16 @@ export default function FloorPlan({ building_id }: { building_id: string }) {
   const [loading, setLoading] = useState(true)
   const [popup,  setPopup]  = useState<Popup | null>(null)
   const [bulk,   setBulk]   = useState(false)
-  const [bForm,  setBForm]  = useState({ floors: 10, apartments_per_floor: 4, price: 80000, size_m2: 60 })
+  const [bForm,  setBForm]  = useState({ floors: 10, apartments_per_floor: 4, price: 80000, size_m2: 60, rooms_count: 2 })
   const [bLoading, setBLoading] = useState(false)
   const [toast, setToast]   = useState<{ msg: string; type: 'success'|'error'|'info' } | null>(null)
+  const [result, setResult] = useState<{
+    success: boolean
+    count: number
+    error?: string
+    floors?: number
+    apartments_per_floor?: number
+  } | null>(null)
 
   const load = async () => {
     if (!building_id) return
@@ -52,13 +59,41 @@ export default function FloorPlan({ building_id }: { building_id: string }) {
 
   async function generate() {
     setBLoading(true)
-    const r = await fetch('/api/bulk-generate', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ building_id, ...bForm }),
-    })
-    const d = await r.json()
-    setToast({ msg: `Created ${d.created} apartments`, type: 'success' })
-    setBulk(false); setBLoading(false); load()
+    setResult(null)
+    
+    try {
+      const r = await fetch('/api/bulk-generate', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ building_id, ...bForm }),
+      })
+      const d = await r.json()
+      
+      if (!r.ok) {
+        setResult({
+          success: false,
+          count: 0,
+          error: d.error || 'Unknown error occurred'
+        })
+      } else {
+        setResult({
+          success: d.success || true,
+          count: d.count || 0,
+          floors: d.floors,
+          apartments_per_floor: d.apartments_per_floor,
+          error: d.error
+        })
+        setToast({ msg: `Created ${d.count || 0} apartments`, type: 'success' })
+        load()
+      }
+    } catch (error) {
+      setResult({
+        success: false,
+        count: 0,
+        error: error instanceof Error ? error.message : 'Network error'
+      })
+    } finally {
+      setBLoading(false)
+    }
   }
 
   if (loading) return (
@@ -207,6 +242,7 @@ export default function FloorPlan({ building_id }: { building_id: string }) {
               {[
                 { k: 'floors',               l: 'Floors',                min: 1,  max: 50 },
                 { k: 'apartments_per_floor', l: 'Apartments per Floor',  min: 1,  max: 20 },
+                { k: 'rooms_count',         l: 'Rooms per Apartment',   min: 1,  max: 10 },
                 { k: 'price',               l: 'Base Price ($)',         min: 0,  max: 9999999 },
                 { k: 'size_m2',             l: 'Size (m²)',              min: 10, max: 500 },
               ].map(({k,l,min,max}) => (
@@ -222,6 +258,42 @@ export default function FloorPlan({ building_id }: { building_id: string }) {
               <button onClick={generate} disabled={bLoading} className="btn-primary" style={{ padding: '12px', borderRadius: 11, fontSize: 14, marginTop: 2 }}>
                 {bLoading ? 'Generating…' : `Generate ${bForm.floors * bForm.apartments_per_floor} Apartments`}
               </button>
+
+              {/* Success/Error State Display */}
+              {result && result.success && (
+                <div className="bg-green-500/10 border border-green-500/30 rounded-xl p-6 text-center" style={{ marginTop: 16 }}>
+                  <div style={{ fontSize: 32, marginBottom: 8 }}>✅</div>
+                  <p style={{ color: '#34d399', fontSize: 18, fontWeight: 'bold', marginBottom: 4 }}>
+                    {result.count} apartments created!
+                  </p>
+                  <p style={{ color: '#64748b', fontSize: 12 }}>
+                    {result.floors} floors × {result.apartments_per_floor} apartments
+                  </p>
+                  <button
+                    onClick={() => {
+                      setBulk(false)
+                      setResult(null)
+                    }}
+                    className="btn-primary" 
+                    style={{ marginTop: 12, padding: '8px 16px', fontSize: 12 }}>
+                    Close
+                  </button>
+                </div>
+              )}
+
+              {result && !result.success && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-6 text-center" style={{ marginTop: 16 }}>
+                  <div style={{ fontSize: 28, marginBottom: 8 }}>❌</div>
+                  <p style={{ color: '#ef4444', fontWeight: 'bold', marginBottom: 4 }}>Creation Failed</p>
+                  <p style={{ color: '#64748b', fontSize: 12, wordBreak: 'break-word' }}>{result.error}</p>
+                  <button
+                    onClick={() => setResult(null)}
+                    className="btn-secondary" 
+                    style={{ marginTop: 12, padding: '8px 16px', fontSize: 12 }}>
+                    Try Again
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
