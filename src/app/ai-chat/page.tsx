@@ -37,13 +37,12 @@ export default function AiChatPage() {
   const [msgs, setMsgs]                 = useState<Msg[]>([])
   const [input, setInput]               = useState('')
   const [streaming, setStreaming]       = useState(false)
-  const [streamText, setStreamText]     = useState('')
   const [typing, setTyping]             = useState(false)
   const endRef    = useRef<HTMLDivElement>(null)
   const textRef   = useRef<HTMLTextAreaElement>(null)
 
   /* auto-scroll */
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs, streamText, typing])
+  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [msgs, typing])
 
   /* auto-resize textarea */
   useEffect(() => {
@@ -62,7 +61,6 @@ export default function AiChatPage() {
 
   async function selectSession(id: string) {
     setActiveId(id)
-    setStreamText('')
     const { data } = await supabase.from('chat_messages').select('*').eq('session_id', id).order('created_at')
     setMsgs(data ?? [])
   }
@@ -73,7 +71,6 @@ export default function AiChatPage() {
       setSessions(s => [data, ...s])
       setActiveId(data.id)
       setMsgs([])
-      setStreamText('')
       textRef.current?.focus()
     }
   }
@@ -106,39 +103,28 @@ export default function AiChatPage() {
     setMsgs(prev => [...prev, userMsg])
     setTyping(true)
     setStreaming(true)
-    setStreamText('')
 
     /* save user msg */
     await supabase.from('chat_messages').insert({ session_id: sid, role: 'user', content: msg })
 
-    let full = ''
     try {
-      const res = await fetch('/api/ai-chat', {
+      const res = await fetch('/api/chat', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: msg, history: msgs.slice(-10).map(m => ({ role: m.role, content: m.content })) }),
+        body: JSON.stringify({
+          message: msg,
+          history: msgs.slice(-8).map(m => ({ role: m.role, content: m.content })),
+        }),
       })
-      if (!res.body) throw new Error('no body')
+
       setTyping(false)
+      const data = await res.json()
 
-      const reader  = res.body.getReader()
-      const decoder = new TextDecoder()
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-        for (const line of decoder.decode(value).split('\n')) {
-          if (!line.startsWith('data: ') || line.slice(6) === '[DONE]') continue
-          try {
-            const d = JSON.parse(line.slice(6))
-            full += d.delta?.text ?? d.text ?? ''
-            setStreamText(full)
-          } catch { /* skip bad chunk */ }
-        }
-      }
+      if (!res.ok) throw new Error(data.error || `Server error ${res.status}`)
 
+      const full = data.response || 'Нет ответа'
       const aMsg: Msg = { id: `a-${Date.now()}`, role: 'assistant', content: full, created_at: new Date().toISOString() }
       setMsgs(prev => [...prev, aMsg])
-      setStreamText('')
 
       await supabase.from('chat_messages').insert({ session_id: sid, role: 'assistant', content: full })
 
@@ -147,11 +133,15 @@ export default function AiChatPage() {
         await supabase.from('chat_sessions').update({ title: msg.slice(0, 50) }).eq('id', sid)
         loadSessions()
       }
-    } catch {
+    } catch (err: unknown) {
       setTyping(false)
-      const errMsg: Msg = { id: `a-${Date.now()}`, role: 'assistant', content: 'Извините, произошла ошибка. Попробуйте ещё раз.', created_at: new Date().toISOString() }
+      const errText = err instanceof Error ? err.message : 'Неизвестная ошибка'
+      const errMsg: Msg = {
+        id: `a-${Date.now()}`, role: 'assistant',
+        content: `Ошибка: ${errText}. Попробуйте ещё раз.`,
+        created_at: new Date().toISOString(),
+      }
       setMsgs(prev => [...prev, errMsg])
-      setStreamText('')
     }
     setStreaming(false)
     textRef.current?.focus()
@@ -234,7 +224,7 @@ export default function AiChatPage() {
           {/* Messages area */}
           <div style={{ flex: 1, overflowY: 'auto', padding: '28px 40px' }}>
             {/* Empty state */}
-            {msgs.length === 0 && !typing && !streamText && (
+            {msgs.length === 0 && !typing && (
               <div style={{ maxWidth: 580, margin: '48px auto', textAlign: 'center', animation: 'fadeIn 0.4s ease' }}>
                 <div style={{
                   width: 64, height: 64, borderRadius: 20, margin: '0 auto 20px',
@@ -303,8 +293,8 @@ export default function AiChatPage() {
                 </div>
               ))}
 
-              {/* Typing / streaming */}
-              {(typing || streamText) && (
+              {/* Typing indicator */}
+              {typing && (
                 <div style={{ display: 'flex', justifyContent: 'flex-start', animation: 'fadeUp 0.2s ease' }}>
                   <div style={{
                     width: 28, height: 28, borderRadius: 8, flexShrink: 0,
@@ -322,7 +312,7 @@ export default function AiChatPage() {
                     borderLeft: '3px solid #6366f1',
                     color: '#e2e8f0', fontSize: 13.5, lineHeight: 1.7, whiteSpace: 'pre-wrap',
                   }}>
-                    {typing && !streamText ? <TypingDots /> : streamText}
+                    <TypingDots />
                   </div>
                 </div>
               )}
