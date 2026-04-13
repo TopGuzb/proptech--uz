@@ -15,6 +15,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Empty message' }, { status: 400 })
     }
 
+    console.log('API KEY exists:', !!process.env.ANTHROPIC_API_KEY)
+    console.log('Message received:', message)
+
     if (!process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json(
         { error: 'ANTHROPIC_API_KEY not configured' },
