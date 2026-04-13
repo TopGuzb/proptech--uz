@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+﻿import { createClient } from '@supabase/supabase-js'
 import { NextRequest } from 'next/server'
 
 const sb = createClient(
@@ -56,3 +56,4 @@ export async function PATCH(req: NextRequest) {
   if (error) return Response.json({ error: error.message }, { status: 400 })
   return Response.json({ data })
 }
+

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -20,7 +20,7 @@ export default function ResidentShell({ children }: { children: React.ReactNode 
   const [info, setInfo] = useState<ResidentInfo>({ name: '', aptNumber: '' })
 
   useEffect(() => {
-    const residentId = getCookie('proppio-resident-id')
+    const residentId = getCookie('PropTech UZ-resident-id')
     if (!residentId) return
     supabase
       .from('residents')
@@ -38,9 +38,9 @@ export default function ResidentShell({ children }: { children: React.ReactNode 
   }, [])
 
   function signOut() {
-    document.cookie = 'proppio-role=; path=/; max-age=0'
-    document.cookie = 'proppio-resident-id=; path=/; max-age=0'
-    document.cookie = 'proppio-resident-email=; path=/; max-age=0'
+    document.cookie = 'PropTech UZ-role=; path=/; max-age=0'
+    document.cookie = 'PropTech UZ-resident-id=; path=/; max-age=0'
+    document.cookie = 'PropTech UZ-resident-email=; path=/; max-age=0'
     router.push('/login')
   }
 
@@ -68,7 +68,7 @@ export default function ResidentShell({ children }: { children: React.ReactNode 
           </div>
           <div>
             <div style={{ fontFamily: 'Sora, sans-serif', fontSize: 14, fontWeight: 800, color: '#e2e8f0', letterSpacing: '-0.2px', lineHeight: 1 }}>
-              Proppio Resident
+              PropTech UZ Resident
             </div>
             <div style={{ fontSize: 10, color: '#475569', marginTop: 2 }}>Resident Portal</div>
           </div>
@@ -117,3 +117,4 @@ export default function ResidentShell({ children }: { children: React.ReactNode 
     </div>
   )
 }
+

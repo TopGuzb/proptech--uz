@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import AppShell from '@/components/AppShell'
 import FloorPlan from '@/components/FloorPlan'
 import Toast from '@/components/Toast'
@@ -14,6 +14,7 @@ interface Building { id: string; name: string; project_id: string; _total?: numb
 
 export default function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>()
+  const router = useRouter()
   const [project, setProject]     = useState<Project | null>(null)
   const [buildings, setBuildings] = useState<Building[]>([])
   const [activeBld, setActiveBld] = useState<string | null>(null)
@@ -64,9 +65,17 @@ export default function ProjectDetailPage() {
       <Link href="/projects" style={{ display: 'inline-flex', alignItems: 'center', gap: 5, color: '#64748b', fontSize: 13, textDecoration: 'none', marginBottom: 16 }}>
         <ArrowLeft size={13} /> Back to Projects
       </Link>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: 22, fontWeight: 800, color: '#e2e8f0', letterSpacing: '-0.4px', marginBottom: 3 }}>{project.name}</h1>
-        <p style={{ color: '#64748b', fontSize: 13 }}>{project.location}</p>
+      <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 24 }}>
+        <div>
+          <h1 style={{ fontFamily: 'Sora, sans-serif', fontSize: 22, fontWeight: 800, color: '#e2e8f0', letterSpacing: '-0.4px', marginBottom: 3 }}>{project.name}</h1>
+          <p style={{ color: '#64748b', fontSize: 13 }}>{project.location}</p>
+        </div>
+        <button
+          type="button"
+          onClick={() => router.push(`/projects/${id}/bulk-generator`)}
+          className="flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm">
+          ⚡ Bulk Generator
+        </button>
       </div>
 
       <div style={{ display: 'flex', gap: 20 }}>

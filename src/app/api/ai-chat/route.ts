@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+﻿import { NextRequest } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
   const stream = client.messages.stream({
     model: 'claude-sonnet-4-6',
     max_tokens: 1024,
-    system: `You are Proppio AI, an intelligent assistant for a real estate CRM in Uzbekistan.
+    system: `You are PropTech UZ, an intelligent assistant for a real estate CRM in Uzbekistan.
 You have access to live business data below. Answer questions about sales, clients, apartments
 and projects in RUSSIAN language. Be concise, use exact numbers from the data. Today: ${ctx.date}
 
@@ -85,3 +85,4 @@ ${JSON.stringify(ctx, null, 2)}`,
     headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' },
   })
 }
+

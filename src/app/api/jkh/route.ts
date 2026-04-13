@@ -1,4 +1,4 @@
-import { createClient } from '@supabase/supabase-js'
+﻿import { createClient } from '@supabase/supabase-js'
 import { NextRequest } from 'next/server'
 
 const sb = createClient(
@@ -53,3 +53,4 @@ export async function POST(req: NextRequest) {
 
   return Response.json({ error: 'Invalid action. Use insert or update' }, { status: 400 })
 }
+

@@ -1,11 +1,11 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Building2, Users, MessageSquare,
-  Calculator, CreditCard, UserCog, LogOut, ChevronRight, Home, Zap,
+  Calculator, CreditCard, UserCog, LogOut, ChevronRight, Home,
 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 
@@ -14,7 +14,6 @@ interface NavItem { href: string; icon: React.ReactNode; label: string; roles: s
 const NAV: NavItem[] = [
   { href: '/dashboard',        icon: <LayoutDashboard size={16} />, label: 'Overview',     roles: ['admin'] },
   { href: '/projects',         icon: <Building2 size={16} />,       label: 'Projects',     roles: ['admin'] },
-  { href: '/bulk-generator',   icon: <Zap size={16} />,             label: 'Bulk Generator', roles: ['admin'] },
   { href: '/clients',          icon: <Users size={16} />,           label: 'Clients',      roles: ['admin'] },
   { href: '/jkh',              icon: <Home size={16} />,            label: 'ЖКХ',          roles: ['admin'] },
   { href: '/ai-chat',          icon: <MessageSquare size={16} />,   label: 'AI Chat',      roles: ['admin', 'manager'] },
@@ -170,3 +169,4 @@ export default function Sidebar() {
     </aside>
   )
 }
+

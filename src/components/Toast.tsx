@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect } from 'react'
 import { CheckCircle, XCircle, Info } from 'lucide-react'
@@ -32,3 +32,4 @@ export default function Toast({ message, type = 'success', onClose, duration = 3
     </div>
   )
 }
+

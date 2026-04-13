@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 export function proxy(request: NextRequest) {
@@ -20,7 +20,7 @@ export function proxy(request: NextRequest) {
     c.name.includes('sb-') ||
     c.name.startsWith('sb')
   )
-  const role = request.cookies.get('proppio-role')?.value
+  const role = request.cookies.get('PropTech UZ-role')?.value
 
   // Not logged in at all
   if (!hasAuth && role !== 'resident') {
@@ -30,7 +30,7 @@ export function proxy(request: NextRequest) {
   // ── Resident role ──────────────────────────────────────────────────
   if (role === 'resident') {
     // Must have resident-id cookie
-    const residentId = request.cookies.get('proppio-resident-id')?.value
+    const residentId = request.cookies.get('PropTech UZ-resident-id')?.value
     if (!residentId) {
       return NextResponse.redirect(new URL('/login', request.url))
     }
@@ -66,3 +66,4 @@ export function proxy(request: NextRequest) {
 export const config = {
   matcher: ['/((?!_next/static|_next/image|favicon.ico|login).*)'],
 }
+

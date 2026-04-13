@@ -1,4 +1,4 @@
-import Sidebar from './Sidebar'
+﻿import Sidebar from './Sidebar'
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
@@ -10,3 +10,4 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     </div>
   )
 }
+

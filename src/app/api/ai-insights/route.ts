@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@supabase/supabase-js'
 
@@ -53,3 +53,4 @@ export async function POST(req: NextRequest) {
 
   return NextResponse.json({ insights })
 }
+

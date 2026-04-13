@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState, useCallback } from 'react'
 import AppShell from '@/components/AppShell'
@@ -235,7 +235,7 @@ export default function AiChatPage() {
                   <Sparkles size={28} color="white" />
                 </div>
                 <h2 style={{ fontFamily: 'Sora, sans-serif', fontSize: 22, fontWeight: 800, color: '#e2e8f0', marginBottom: 8, letterSpacing: '-0.3px' }}>
-                  Proppio AI Assistant
+                  PropTech UZ Assistant
                 </h2>
                 <p style={{ color: '#475569', fontSize: 14, marginBottom: 28, lineHeight: 1.65 }}>
                   Ask me anything about your sales data, clients, and apartments.<br />I answer in Russian.
@@ -362,3 +362,4 @@ export default function AiChatPage() {
     </AppShell>
   )
 }
+

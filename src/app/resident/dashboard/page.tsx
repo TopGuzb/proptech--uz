@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import ResidentShell from '@/components/ResidentShell'
@@ -53,7 +53,7 @@ export default function ResidentDashboard() {
   const curMonth = new Date().toISOString().slice(0, 7)
 
   useEffect(() => {
-    const id = getCookie('proppio-resident-id')
+    const id = getCookie('PropTech UZ-resident-id')
     if (!id) return
     loadData(id)
   }, [])
@@ -361,3 +361,4 @@ export default function ResidentDashboard() {
     </ResidentShell>
   )
 }
+

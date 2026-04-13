@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useMemo, useState } from 'react'
 import AppShell from '@/components/AppShell'
@@ -279,3 +279,4 @@ export default function ClientsPage() {
     </AppShell>
   )
 }
+

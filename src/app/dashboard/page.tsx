@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useCallback } from 'react'
 import AppShell from '@/components/AppShell'
@@ -349,3 +349,4 @@ export default function DashboardPage() {
     </AppShell>
   )
 }
+

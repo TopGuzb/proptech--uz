@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState } from 'react'
 import AppShell from '@/components/AppShell'
@@ -175,3 +175,4 @@ export default function SellerDashboardPage() {
     </AppShell>
   )
 }
+
