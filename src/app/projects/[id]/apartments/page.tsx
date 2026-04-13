@@ -5,9 +5,10 @@ import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/utils/supabase/client'
 import AppShell from '@/components/AppShell'
 import { LoadingSpinner, EmptyState, StatCard } from '@/components/ui'
-import type { Apartment, Building } from '@/types'
+import type { Apartment } from '@/types'
 
 type ApartmentWithFloor = Apartment & { floors: { floor_number: number } }
+type BuildingRow = { id: string; name: string }
 
 export default function ApartmentsPage() {
   const params = useParams()
@@ -15,7 +16,7 @@ export default function ApartmentsPage() {
   const projectId = params.id as string
   const supabase = createClient()
 
-  const [buildings, setBuildings] = useState<Building[]>([])
+  const [buildings, setBuildings] = useState<BuildingRow[]>([])
   const [selectedBuilding, setSelectedBuilding] = useState('')
   const [apartments, setApartments] = useState<ApartmentWithFloor[]>([])
   const [loading, setLoading] = useState(false)
@@ -85,7 +86,7 @@ export default function ApartmentsPage() {
   async function updateStatus(id: string, status: string) {
     await supabase.from('apartments').update({ status }).eq('id', id)
     setApartments(prev =>
-      prev.map(a => a.id === id ? { ...a, status: status as any } : a)
+      prev.map(a => a.id === id ? { ...a, status: status as ApartmentWithFloor['status'] } : a)
     )
   }
 
@@ -115,18 +116,10 @@ export default function ApartmentsPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-4 gap-4 mb-6">
-          {[
-            ['Всего', stats.total, 'text-white'],
-            ['Свободно', stats.available, 'text-green-400'],
-            ['Резерв', stats.reserved, 'text-amber-400'],
-            ['Продано', stats.sold, 'text-red-400'],
-          ].map(([label, val, col]) => (
-            <div key={label as string}
-              className="rounded-2xl bg-[#161b22] border border-[#30363d] p-4">
-              <p className="text-gray-400 text-sm">{label}</p>
-              <p className={`text-3xl font-bold mt-1 ${col}`}>{val}</p>
-            </div>
-          ))}
+          <StatCard label="Всего"    value={stats.total}     color="indigo" />
+          <StatCard label="Свободно" value={stats.available} color="green"  icon="🟢" />
+          <StatCard label="Резерв"   value={stats.reserved}  color="amber"  icon="🟡" />
+          <StatCard label="Продано"  value={stats.sold}      color="red"    icon="🔴" />
         </div>
 
         {/* Building selector + filter */}
@@ -160,21 +153,17 @@ export default function ApartmentsPage() {
 
         {/* Floor Plan */}
         {loading ? (
-          <div className="text-center py-20 text-gray-400">
-            Загружаем квартиры...
-          </div>
+          <LoadingSpinner />
         ) : apartments.length === 0 ? (
-          <div className="text-center py-20">
-            <p className="text-gray-400 mb-4">
-              Квартир нет. Создай через Bulk Generator!
-            </p>
-            <button
-              onClick={() => router.push(`/projects/${projectId}/bulk-generator`)}
-              className="px-6 py-3 rounded-xl bg-indigo-600
-                         hover:bg-indigo-700 text-white font-medium">
-              ⚡ Открыть Bulk Generator
-            </button>
-          </div>
+          <EmptyState
+            icon="🏗️"
+            title="Квартир пока нет"
+            description="Создай квартиры через Bulk Generator — это займёт несколько секунд."
+            action={{
+              label: '⚡ Открыть Bulk Generator',
+              onClick: () => router.push(`/projects/${projectId}/bulk-generator`),
+            }}
+          />
         ) : (
           <div className="space-y-3">
             {floorNums.map(floorNum => (
