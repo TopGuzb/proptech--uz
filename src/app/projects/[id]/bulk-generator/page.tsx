@@ -88,6 +88,7 @@ export default function BulkGeneratorPage() {
         setProgress(Math.round((inserted / apts.length) * 100))
       }
 
+      console.log('SUCCESS! Count:', inserted)
       setCount(inserted)
       setDone(true)
 
